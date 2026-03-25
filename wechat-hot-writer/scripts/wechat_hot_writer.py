@@ -23,7 +23,7 @@ from pathlib import Path
 from typing import Any
 
 
-AI_KEYWORDS = {
+AI_TOPIC_KEYWORDS = {
     "ai",
     "人工智能",
     "大模型",
@@ -55,25 +55,108 @@ AI_KEYWORDS = {
     "应用",
 }
 
-SAFE_LANE_KEYWORDS = {
-    "产品",
-    "工具",
-    "效率",
-    "工作流",
-    "开发者",
-    "开源",
-    "应用",
-    "模型",
-    "agent",
-    "编程",
-    "软件",
-    "手机",
-    "电脑",
-    "芯片",
-    "机器人",
+WELLNESS_KEYWORDS = {
+    "健康",
+    "养生",
+    "睡眠",
+    "失眠",
+    "饮食",
+    "吃饭",
+    "吃法",
+    "走路",
+    "散步",
+    "关节",
+    "腰腿",
+    "血糖",
+    "血压",
+    "血脂",
+    "消化",
+    "肠胃",
+    "胃",
+    "心脏",
+    "体重",
+    "季节",
+    "春天",
+    "夏天",
+    "秋天",
+    "冬天",
+    "保健",
 }
 
-RISK_KEYWORDS = {
+SILVER_LIFE_KEYWORDS = {
+    "中老年",
+    "老人",
+    "老年",
+    "银发",
+    "退休",
+    "养老",
+    "社区",
+    "父母",
+    "爸妈",
+    "妈妈",
+    "爸爸",
+    "家人",
+    "长辈",
+}
+
+FAMILY_KEYWORDS = {
+    "家庭",
+    "家里",
+    "子女",
+    "父母",
+    "爸妈",
+    "老人",
+    "长辈",
+    "照护",
+    "陪伴",
+    "退休",
+    "亲戚",
+}
+
+PUBLIC_INTEREST_KEYWORDS = {
+    "防骗",
+    "被骗",
+    "骗局",
+    "提醒",
+    "注意",
+    "误区",
+    "很多人",
+    "小心",
+    "风险",
+    "故事",
+    "人物",
+    "情感",
+    "社会",
+    "食品",
+    "买菜",
+    "消费",
+    "日常",
+    "生活",
+    "小龙虾",
+}
+
+READER_PRIORITY_KEYWORDS = WELLNESS_KEYWORDS | SILVER_LIFE_KEYWORDS | FAMILY_KEYWORDS | PUBLIC_INTEREST_KEYWORDS
+
+SHAREABLE_KEYWORDS = {
+    "很多人",
+    "提醒",
+    "注意",
+    "别",
+    "小心",
+    "误区",
+    "家里",
+    "父母",
+    "老人",
+    "中老年",
+    "退休",
+    "被骗",
+    "故事",
+    "终于",
+    "原来",
+    "日常",
+}
+
+GENERAL_RISK_KEYWORDS = {
     "财经",
     "金融",
     "投资",
@@ -82,11 +165,6 @@ RISK_KEYWORDS = {
     "基金",
     "保险",
     "银行",
-    "医疗",
-    "医生",
-    "医院",
-    "疾病",
-    "药",
     "法律",
     "律师",
     "法院",
@@ -103,10 +181,35 @@ RISK_KEYWORDS = {
     "公安",
 }
 
+MEDICAL_RISK_KEYWORDS = {
+    "医疗",
+    "医生",
+    "医院",
+    "疾病",
+    "诊断",
+    "治疗",
+    "药",
+    "药品",
+    "处方",
+    "手术",
+    "癌",
+    "肿瘤",
+}
+
+MIRACLE_CLAIM_KEYWORDS = {
+    "神药",
+    "包治",
+    "根治",
+    "治好",
+    "逆转",
+    "偏方",
+    "秘方",
+    "速效",
+}
+
 RISK_CATEGORIES = {
     "国内时政",
     "海外新闻",
-    "民生新闻",
     "财经",
     "金融",
     "医疗",
@@ -116,11 +219,11 @@ RISK_CATEGORIES = {
 
 REQUIRED_SECTIONS = [
     "热点钩子",
-    "事实拆解",
-    "为什么现在重要",
-    "工具或案例",
-    "可执行建议",
-    "结尾观点",
+    "这事和谁最相关",
+    "关键事实",
+    "常见误区或案例",
+    "日常怎么做",
+    "最后提醒",
 ]
 
 BAOYU_SKILL_SCRIPT_MAP = {
@@ -491,13 +594,26 @@ def keyword_hits(text: str, keywords: set[str]) -> int:
     return sum(1 for keyword in keywords if keyword.lower() in text_lower)
 
 
-def estimate_ai_relevance(title: str, category: str) -> float:
+def estimate_reader_relevance(title: str, category: str) -> float:
     combined = f"{title} {category}".strip()
-    hits = keyword_hits(combined, AI_KEYWORDS)
-    safe_hits = keyword_hits(combined, SAFE_LANE_KEYWORDS)
-    base = 0.05 + min(hits, 5) * 0.17 + min(safe_hits, 3) * 0.07
-    if any(keyword in title for keyword in ("发布", "更新", "开源", "上线", "模型", "工具")):
+    priority_hits = keyword_hits(combined, READER_PRIORITY_KEYWORDS)
+    wellness_hits = keyword_hits(combined, WELLNESS_KEYWORDS)
+    family_hits = keyword_hits(combined, FAMILY_KEYWORDS)
+    public_hits = keyword_hits(combined, PUBLIC_INTEREST_KEYWORDS)
+    ai_hits = keyword_hits(combined, AI_TOPIC_KEYWORDS)
+    base = 0.12
+    base += min(priority_hits, 6) * 0.1
+    base += min(wellness_hits, 3) * 0.05
+    base += min(family_hits, 3) * 0.06
+    base += min(public_hits, 3) * 0.05
+    if re.search(r"\d", title):
+        base += 0.05
+    if any(keyword in title for keyword in ("提醒", "注意", "误区", "很多人", "家里", "父母", "老人")):
         base += 0.08
+    if ai_hits > 0 and priority_hits == 0 and public_hits == 0:
+        base -= 0.38
+    elif ai_hits > 0:
+        base -= 0.04
     return clamp(base)
 
 
@@ -505,43 +621,63 @@ def estimate_explainability(title: str, category: str) -> float:
     base = 0.42
     if re.search(r"\d", title):
         base += 0.08
-    if re.search(r"[A-Za-z]{3,}", title):
-        base += 0.12
     if 8 <= len(title) <= 36:
         base += 0.12
-    if keyword_hits(title, AI_KEYWORDS) > 0:
-        base += 0.16
+    if keyword_hits(title, READER_PRIORITY_KEYWORDS) > 0:
+        base += 0.14
     if category and category not in RISK_CATEGORIES:
         base += 0.06
-    if any(word in title for word in ["直播", "热议", "怒了", "曝", "塌房"]):
+    if any(word in title for word in ["直播", "怒了", "曝", "塌房", "热议"]):
         base -= 0.12
+    return clamp(base)
+
+
+def estimate_shareability(title: str, category: str) -> float:
+    combined = f"{title} {category}".strip()
+    base = 0.34
+    base += min(keyword_hits(combined, SHAREABLE_KEYWORDS), 4) * 0.1
+    base += min(keyword_hits(combined, FAMILY_KEYWORDS), 2) * 0.06
+    if re.search(r"\d", title):
+        base += 0.05
+    if any(word in title for word in ["提醒", "注意", "小心", "误区", "很多人", "原来", "终于"]):
+        base += 0.1
+    if keyword_hits(combined, AI_TOPIC_KEYWORDS) > 0 and keyword_hits(combined, READER_PRIORITY_KEYWORDS) == 0:
+        base -= 0.16
     return clamp(base)
 
 
 def estimate_compliance_risk(title: str, category: str) -> float:
     combined = f"{title} {category}".strip()
-    risk_hits = keyword_hits(combined, RISK_KEYWORDS)
+    risk_hits = keyword_hits(combined, GENERAL_RISK_KEYWORDS | MEDICAL_RISK_KEYWORDS)
     base = 0.08 + min(risk_hits, 4) * 0.16
     if category in RISK_CATEGORIES:
         base += 0.18
-    if keyword_hits(combined, AI_KEYWORDS) > 0:
-        base -= 0.08
+    if keyword_hits(combined, MIRACLE_CLAIM_KEYWORDS) > 0:
+        base += 0.22
+    if keyword_hits(combined, WELLNESS_KEYWORDS) > 0 and keyword_hits(combined, MEDICAL_RISK_KEYWORDS) == 0:
+        base -= 0.04
     return clamp(base)
 
 
 def build_angle_candidates(title: str) -> list[str]:
     candidates = [
-        "不要停留在事件表面，直接解释它对 AI 工具链和工作流的实际影响",
-        "从真实产品动作和协作方式切入，而不是重复趋势口号",
-        "把这件事整理成接下来 30 天值得观察的变量和判断",
+        "别停在热点表面，先讲清这件事和哪类人最相关",
+        "把容易被带偏的误区拆开，再说真正该注意的点",
+        "最后落到普通家庭今天就能执行的动作，不空喊口号",
     ]
     title_lower = title.lower()
-    if any(keyword in title_lower for keyword in ["openai", "gpt", "claude", "gemini", "agent"]):
-        candidates[0] = "把这次模型或产品变化，拆成真实用户和开发者的直接影响"
-    if any(keyword in title for keyword in ["开源", "发布", "上线", "更新"]):
-        candidates[1] = "从发布本身退一步，看它会改变哪些工具和协作习惯"
-    if any(keyword in title for keyword in ["芯片", "算力", "机器人"]):
-        candidates[2] = "别停在新闻面，直接判断产业链和应用侧会先变哪里"
+    if any(keyword in title for keyword in WELLNESS_KEYWORDS):
+        candidates[0] = "先分清这件事属于日常提醒、习惯调整，还是已经超出自我管理边界"
+        candidates[1] = "把常见误区、过度焦虑、和真正靠谱的做法分开说"
+        candidates[2] = "结尾要交代哪些情况别硬扛，应该尽快求助专业人士"
+    elif any(keyword in title for keyword in FAMILY_KEYWORDS | {"被骗", "防骗", "骗局"}):
+        candidates[0] = "先说这事在家庭场景里最容易发生在哪里"
+        candidates[1] = "把最容易忽视的预警信号讲清楚，别写成纯情绪文"
+        candidates[2] = "给出一份家里人今天就能照着做的提醒清单"
+    elif any(keyword in title_lower for keyword in ["openai", "gpt", "claude", "gemini", "agent", "ai"]):
+        candidates[0] = "只有当它和普通人的消费、食品、民生或家庭场景有明确关系时才保留"
+        candidates[1] = "把技术热点翻译成大众能直接感知的生活影响"
+        candidates[2] = "别写圈内黑话，直接说对普通家庭到底有没有用"
     return candidates
 
 
@@ -590,15 +726,17 @@ def normalize_topic(source: str, raw: dict[str, Any], limit: int) -> dict[str, A
         parse_metric(raw.get("answers")),
     )
     heat = clamp((heat_metric / 1000000.0) if heat_metric else freshness)
-    ai_relevance = estimate_ai_relevance(title, category)
+    reader_relevance = estimate_reader_relevance(title, category)
     explainability = estimate_explainability(title, category)
+    shareability = estimate_shareability(title, category)
     compliance_risk = estimate_compliance_risk(title, category)
     final_score = clamp(
         freshness
-        * ai_relevance
+        * reader_relevance
         * explainability
+        * shareability
         * (1.0 - compliance_risk)
-        * (0.6 + 0.4 * heat),
+        * (0.55 + 0.45 * heat),
         0.0,
         1.0,
     )
@@ -608,7 +746,8 @@ def normalize_topic(source: str, raw: dict[str, Any], limit: int) -> dict[str, A
         "url": url,
         "freshness": round(freshness, 4),
         "heat": round(heat, 4),
-        "ai_relevance": round(ai_relevance, 4),
+        "reader_relevance": round(reader_relevance, 4),
+        "shareability": round(shareability, 4),
         "compliance_risk": round(compliance_risk, 4),
         "angle_candidates": build_angle_candidates(title),
         "facts": build_facts(source, title, url, raw),
@@ -616,8 +755,9 @@ def normalize_topic(source: str, raw: dict[str, Any], limit: int) -> dict[str, A
         "score_breakdown": {
             "freshness": round(freshness, 4),
             "heat": round(heat, 4),
-            "ai_relevance": round(ai_relevance, 4),
+            "reader_relevance": round(reader_relevance, 4),
             "explainability": round(explainability, 4),
+            "shareability": round(shareability, 4),
             "compliance_risk": round(compliance_risk, 4),
         },
         "category": category,
@@ -633,7 +773,6 @@ def discover_topics(args: argparse.Namespace) -> int:
 
     sources = [
         ("weibo", ["weibo", "hot", "--limit", str(args.per_source)]),
-        ("twitter", ["twitter", "trending", "--limit", str(args.per_source)]),
         ("zhihu", ["zhihu", "hot", "--limit", str(args.per_source)]),
         ("bilibili", ["bilibili", "hot", "--limit", str(args.per_source)]),
     ]
@@ -654,12 +793,12 @@ def discover_topics(args: argparse.Namespace) -> int:
         for topic in results
         if args.allow_high_risk or topic["compliance_risk"] < args.max_risk
     ]
-    kept = [topic for topic in kept if topic["ai_relevance"] >= args.min_ai_relevance]
+    kept = [topic for topic in kept if topic["reader_relevance"] >= args.min_reader_relevance]
 
-    strong_topics = [topic for topic in kept if topic["ai_relevance"] >= max(args.min_ai_relevance, 0.45)]
+    strong_topics = [topic for topic in kept if topic["reader_relevance"] >= max(args.min_reader_relevance, 0.48)]
 
     if len(strong_topics) < args.limit:
-        fallback_query = args.fallback_query or "AI 人工智能 OpenAI 大模型 Agent 科技"
+        fallback_query = args.fallback_query or "中老年 健康 养生 银发 睡眠 饮食 走路 家庭 防骗"
         try:
             payload = run_opencli_json(
                 [
@@ -692,11 +831,11 @@ def discover_topics(args: argparse.Namespace) -> int:
     topics = sorted(deduped.values(), key=lambda item: item["score"], reverse=True)[: args.limit]
     output = {
         "generated_at": now_iso(),
-        "lane": "泛科技AI",
+        "lane": "中老年健康与银发生活",
         "filters": {
             "allow_high_risk": args.allow_high_risk,
             "max_risk": args.max_risk,
-            "min_ai_relevance": args.min_ai_relevance,
+            "min_reader_relevance": args.min_reader_relevance,
         },
         "topics": topics,
         "failures": failures,
@@ -736,10 +875,30 @@ def pick_topic(payload: Any, topic_index: int) -> dict[str, Any]:
 def suggest_titles(topic: dict[str, Any]) -> list[str]:
     title = topic["title"]
     return [
-        f"{title}之外，更值得关注的是 Agent 如何进入真实工作流",
-        f"从{title}看模型竞争下一阶段的落点",
-        f"围绕{title}，真正变化的不是分数，而是交付方式",
+        f"从「{title}」说起，很多家庭都容易忽视这件事",
+        f"看到「{title}」，更该提醒家里人的是这几个细节",
+        f"别只盯着「{title}」，真正要紧的是后面这一步",
     ]
+
+
+def suggest_keywords_for_topic(topic: dict[str, Any]) -> list[str]:
+    title = str(topic.get("title", "")).strip()
+    category = str(topic.get("category", "")).strip()
+    combined = f"{title} {category}"
+    keywords = [title]
+    if keyword_hits(combined, WELLNESS_KEYWORDS) > 0:
+        keywords.extend(["中老年", "健康", "日常提醒", "家庭"])
+    elif keyword_hits(combined, FAMILY_KEYWORDS) > 0:
+        keywords.extend(["家庭", "父母", "提醒", "生活"])
+    else:
+        keywords.extend(["中老年", "生活", "提醒", "公共话题"])
+    deduped: list[str] = []
+    seen: set[str] = set()
+    for keyword in keywords:
+        if keyword and keyword not in seen:
+            deduped.append(keyword)
+            seen.add(keyword)
+    return deduped[:5]
 
 
 def scaffold_article(topic: dict[str, Any], benchmark_url: str | None) -> dict[str, Any]:
@@ -749,12 +908,12 @@ def scaffold_article(topic: dict[str, Any], benchmark_url: str | None) -> dict[s
         for section, goal in zip(
             REQUIRED_SECTIONS,
             [
-                "用事件切入，但不要写成情绪复述。",
-                "列出可验证事实，挂到来源上。",
-                "解释现在发生的原因，以及为什么这次不是旧闻重写。",
-                "给出具体工具、产品、案例或真实工作流。",
-                "给出可操作的试点路径，而不是空泛建议。",
-                "收束成一个明确判断，不要喊口号。",
+                "用事件或场景切入，但不要写成情绪复述。",
+                "先点明最需要看这篇的人是谁。",
+                "列出可验证事实，别混进空泛结论。",
+                "把误区、案例、或容易踩坑的地方讲清楚。",
+                "给出普通家庭今天就能执行的做法。",
+                "收束成边界清晰的提醒，不要喊口号。",
             ],
         )
     ]
@@ -776,20 +935,20 @@ def scaffold_article(topic: dict[str, Any], benchmark_url: str | None) -> dict[s
                 "why_it_matters": "这是当前选题的起点来源，正文里的事实要继续补强。",
             }
         ],
-        "cover_prompt": f"给微信公众号封面图，主题是：{topic['title']}。风格简洁、科技感、中文排版、不要廉价 AI 海报感。",
+        "cover_prompt": f"给微信公众号封面图，主题是：{topic['title']}。风格干净、可信、生活化、中文排版，适合中老年和家庭读者，不要廉价保健品海报感。",
         "image_prompts": [
-            f"为文章配一张科技感插图，主题：{topic['title']}，风格克制、信息密度高、适合公众号正文。",
+            f"为文章配一张信息图或提醒图，主题：{topic['title']}，风格克制、好懂、适合公众号正文，不要装饰性空图。",
         ],
-        "keywords": [topic["title"], "AI", "科技", "工具", "工作流"],
+        "keywords": suggest_keywords_for_topic(topic),
         "fact_checklist": copy.deepcopy(topic["facts"]),
         "benchmark_article_url": benchmark_url,
         "style_notes": [
-            "语气克制，避免互联网口头感。",
+            "语气稳，像把一件事认真讲给家里人听。",
             "删空话，但也别写成硬邦邦的报告。",
-            "先交代具体事件、人物或公司，再展开判断。",
-            "把判断挂到具体产品、公司、用户动作上。",
-            "不要写成热点复述稿。",
-            "少用“打起来了”“值钱”“热闹”这类词。",
+            "先交代具体场景、人群或事件，再展开判断。",
+            "少讲大词，多讲普通人今天能做什么。",
+            "不要写成热点复述稿，也不要写成吓人的伪养生文。",
+            "健康内容别写成诊断、治疗方案、神药推荐。",
         ],
     }
 
@@ -1031,22 +1190,24 @@ def detect_visual_lane(package: dict[str, Any]) -> str:
     title = " ".join(package.get("titles", []))
     body = str(package.get("body_markdown", ""))
     text = f"{title}\n{body}"
-    if any(word in text for word in ["架构", "系统", "模块", "组件"]):
-        return "system-design"
-    if any(word in text for word in ["流程", "工作流", "步骤", "试点"]):
-        return "process-flow"
-    return "tech-explainer"
+    if any(word in text for word in WELLNESS_KEYWORDS):
+        return "health-explainer"
+    if any(word in text for word in ["流程", "步骤", "清单", "怎么做", "提醒"]):
+        return "checklist"
+    if any(word in text for word in FAMILY_KEYWORDS | {"被骗", "防骗", "骗局", "社区"}):
+        return "family-guide"
+    return "lifestyle-explainer"
 
 
 def choose_cover_style(package: dict[str, Any]) -> dict[str, str]:
     title = str(package.get("titles", [""])[0])
     text = f"{title}\n{package.get('summary', '')}"
-    style = "blueprint"
+    style = "editorial-infographic"
     cover_type = "conceptual"
-    if any(word in text for word in ["观点", "竞争", "交锋", "判断"]):
+    if any(word in text for word in WELLNESS_KEYWORDS):
+        style = "magazine"
+    if any(word in text for word in ["提醒", "误区", "清单", "怎么做"]):
         style = "editorial-infographic"
-    if any(word in text for word in ["系统", "架构", "工作流", "Agent"]):
-        cover_type = "conceptual"
     return {
         "type": cover_type,
         "style": style,
@@ -1057,31 +1218,35 @@ def choose_cover_style(package: dict[str, Any]) -> dict[str, str]:
 def build_illustration_entries(package: dict[str, Any]) -> list[dict[str, str]]:
     entries = [
         {
-            "section": "事实拆解",
+            "section": "关键事实",
             "type": "comparison",
-            "purpose": "把模型竞争的关注点从回答能力转到任务执行与交付能力。",
-            "visual_content": "左右对比图：左侧是传统模型比较维度，右侧是新一轮 Agent 比较维度。包含上下文处理、工具调用、任务稳定性、交付方式等标签。",
-            "filename": "01-comparison-model-vs-agent.png",
+            "purpose": "把最关键的事实和边界条件讲清楚。",
+            "visual_content": "左右对比图：左侧是常见误区或错误说法，右侧是更稳妥的事实理解或提醒。",
+            "filename": "01-comparison-myth-vs-fact.png",
         },
         {
-            "section": "为什么现在重要",
+            "section": "常见误区或案例",
             "type": "framework",
-            "purpose": "解释“模型能力”与“交付能力”之间的关系。",
-            "visual_content": "一个三层框架图：底层模型能力，中层工作流编排，上层业务交付与组织效率。强调真正的差距发生在中上层。",
-            "filename": "02-framework-delivery-stack.png",
+            "purpose": "把读者最容易踩坑的场景画出来。",
+            "visual_content": "一个场景化示意图：展示典型生活场景，并标出最容易忽视的风险点、误区、或判断边界。",
+            "filename": "02-framework-scene-risk-map.png",
         },
         {
-            "section": "可执行建议",
+            "section": "日常怎么做",
             "type": "flowchart",
-            "purpose": "把团队或个人试点 Agent 的最小路径讲清楚。",
-            "visual_content": "流程图：选择高频低风险任务 -> 定义输入模板 -> 定义输出格式 -> 设定验收标准 -> 人工复核 -> 复盘优化。",
-            "filename": "03-flowchart-agent-pilot.png",
+            "purpose": "把普通人今天就能执行的动作整理清楚。",
+            "visual_content": "流程图：先观察信号 -> 分清误区 -> 做基础调整 -> 记录变化 -> 必要时求助专业人士。",
+            "filename": "03-flowchart-daily-checklist.png",
         },
     ]
     lane = detect_visual_lane(package)
-    if lane == "system-design":
-        entries[0]["type"] = "framework"
-        entries[0]["visual_content"] = "系统框架图：模型、工具层、任务层、业务层之间的依赖关系。"
+    if lane == "health-explainer":
+        entries[1]["type"] = "comparison"
+        entries[1]["visual_content"] = "对照图：左侧是常见但不稳妥的做法，右侧是更保守、更靠谱的日常处理方式。"
+        entries[2]["visual_content"] = "决策树：出现哪些信号先做基础调整，出现哪些信号不要拖，应尽快咨询专业人士。"
+    elif lane == "family-guide":
+        entries[1]["visual_content"] = "家庭场景图：家里最容易忽视的沟通、消费、或防骗风险点分布。"
+        entries[2]["visual_content"] = "提醒清单流程：先核实 -> 再沟通 -> 留证据 -> 找可信渠道确认 -> 必要时求助。"
     return entries
 
 
@@ -1122,7 +1287,7 @@ def render_prompt(package: dict[str, Any], entry: dict[str, str], index: int, st
         section: "{entry['section']}"
         ---
 
-        Create an explanatory article illustration for a Chinese AI commentary article.
+        Create an explanatory article illustration for a Chinese WeChat article aimed at middle-aged and older readers and their families.
 
         SECTION
         {entry['section']}
@@ -1137,7 +1302,7 @@ def render_prompt(package: dict[str, Any], entry: dict[str, str], index: int, st
         {summary}
 
         STYLE
-        Clean, editorial, information-first. Avoid generic AI art, glowing brains, random robots, and decorative filler.
+        Clean, editorial, information-first. Avoid decorative filler, miracle-cure ad vibes, and cheap stock-poster aesthetics.
 
         LABELS
         Use concise Chinese labels where the diagram benefits from text. Keep wording precise and publication-ready.
@@ -1157,7 +1322,7 @@ def prepare_visuals(args: argparse.Namespace) -> int:
     title = str(package.get("titles", [""])[0]).strip()
     lane = detect_visual_lane(package)
     cover = choose_cover_style(package)
-    preset = "tech-explainer" if lane != "process-flow" else "process-flow"
+    preset = "process-flow" if lane == "checklist" else "editorial-infographic"
     entries = build_illustration_entries(package)
     provider, model, credentials_present = detect_image_provider_and_model(args.provider, args.model)
 
@@ -1190,9 +1355,9 @@ def prepare_visuals(args: argparse.Namespace) -> int:
         - aspect: {cover['aspect']}
 
         建议方向：
-        - 用“交付阶段”“工作流”“Agent 系统”这样的概念做视觉中心
+        - 先让人一眼看懂是“提醒类”“家庭类”还是“健康类”
         - 少做戏剧化冲突，多做结构化表达
-        - 保持科技感，但不要廉价 AI 海报风
+        - 看起来可信、克制、好懂，不要廉价保健品海报风
 
         推荐命令：
         /baoyu-cover-image {article_markdown} --quick --type {cover['type']} --style {cover['style']} --aspect {cover['aspect']}
@@ -1535,7 +1700,7 @@ def build_parser() -> argparse.ArgumentParser:
     discover.add_argument("--fallback-query", default="")
     discover.add_argument("--allow-high-risk", action="store_true")
     discover.add_argument("--max-risk", type=float, default=0.45)
-    discover.add_argument("--min-ai-relevance", type=float, default=0.35)
+    discover.add_argument("--min-reader-relevance", "--min-ai-relevance", dest="min_reader_relevance", type=float, default=0.38)
     discover.add_argument("--timeout", type=int, default=35)
     discover.set_defaults(handler=discover_topics)
 

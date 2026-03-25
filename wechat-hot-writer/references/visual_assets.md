@@ -27,16 +27,16 @@ Use Baoyu's image-related skills as the default visual layer for this skill.
 
 ## Default recommendations
 
-For AI / tech commentary:
+For middle-aged-reader health, silver-life, and family-interest articles:
 
 - Cover:
   - `baoyu-cover-image`
   - type: `conceptual`
-  - style: `blueprint` or `editorial-infographic`
+  - style: `editorial-infographic` or `magazine`
   - aspect: `16:9`
 - In-article visuals:
   - `baoyu-article-illustrator`
-  - preset: `tech-explainer` or `process-flow`
+  - preset: `editorial-infographic` or `process-flow`
   - density: `balanced`
 - Generation backend:
   - `baoyu-image-gen`
@@ -56,6 +56,7 @@ Current auto-detect order:
 ## Guardrails
 
 - Do not generate random decorative filler just because a section exists.
-- Prefer one strong diagram over three generic “AI concept art” images.
-- Explanatory articles should bias toward framework, comparison, flowchart, and infographic types.
+- Prefer one strong checklist, comparison, or reminder graphic over decorative mood art.
+- Explanatory articles should bias toward myth-vs-fact, do-vs-don't, flowchart, checklist, and infographic types.
 - Covers may be more symbolic; in-article visuals should stay explanatory.
+- Do not make visuals look like cheap保健品 posters or exaggerated miracle-cure ads.
