@@ -1,6 +1,12 @@
 .DS_Store
+.baoyu-skills/
 .opencli/
 out/
 tmp/
+skills/**/.baoyu-skills/
+skills/**/.opencli/
+skills/**/out/
+skills/**/tmp/
+skills/**/__pycache__/
 __pycache__/
 *.pyc

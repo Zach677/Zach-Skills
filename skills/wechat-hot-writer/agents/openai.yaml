@@ -1,0 +1,4 @@
+interface:
+  display_name: "WeChat Hot Writer"
+  short_description: "Find WeChat topics, package articles, and stage draft delivery"
+  default_prompt: "Use $wechat-hot-writer to find a low-risk WeChat topic, respect EXTEND.md preferences if present, package the article, and stage a WeChat draft."

@@ -243,6 +243,30 @@ REQUIRED_SECTIONS = [
     "最后提醒",
 ]
 
+DEFAULT_TITLE_TEMPLATES = [
+    "从「{title}」说起，很多家庭都容易忽视这件事",
+    "看到「{title}」，更该提醒家里人的是这几个细节",
+    "别只盯着「{title}」，真正要紧的是后面这一步",
+]
+
+DEFAULT_STYLE_NOTES = [
+    "语气稳，像把一件事认真讲给家里人听。",
+    "删空话，但也别写成硬邦邦的报告。",
+    "先交代具体场景、人群或事件，再展开判断。",
+    "少讲大词，多讲普通人今天能做什么。",
+    "不要写成热点复述稿，也不要写成吓人的伪养生文。",
+    "健康内容别写成诊断、治疗方案、神药推荐。",
+]
+
+DEFAULT_WRITER_PREFERENCES = {
+    "lane": "中老年健康与银发生活",
+    "fallback_query": "中老年 健康 养生 银发 睡眠 饮食 走路 家庭 防骗",
+    "min_reader_relevance": 0.38,
+    "max_risk": 0.45,
+    "title_templates": DEFAULT_TITLE_TEMPLATES,
+    "style_notes": DEFAULT_STYLE_NOTES,
+}
+
 BAOYU_SKILL_SCRIPT_MAP = {
     "baoyu-markdown-to-html": "scripts/main.ts",
     "baoyu-post-to-wechat-article": "scripts/wechat-article.ts",
@@ -310,6 +334,16 @@ def configured_env_file_paths() -> tuple[Path, ...]:
     return (
         Path.cwd() / ".baoyu-skills" / ".env",
         Path.home() / ".baoyu-skills" / ".env",
+    )
+
+
+def configured_extend_file_paths(skill_name: str) -> tuple[Path, ...]:
+    xdg_home = os.environ.get("XDG_CONFIG_HOME", "").strip()
+    xdg_base = Path(xdg_home).expanduser() if xdg_home else Path.home() / ".config"
+    return (
+        Path.cwd() / ".baoyu-skills" / skill_name / "EXTEND.md",
+        xdg_base / "baoyu-skills" / skill_name / "EXTEND.md",
+        Path.home() / ".baoyu-skills" / skill_name / "EXTEND.md",
     )
 
 
@@ -458,6 +492,84 @@ def parse_env_file(path: Path) -> dict[str, str]:
         key, value = line.split("=", 1)
         values[key.strip()] = value.strip().strip('"').strip("'")
     return values
+
+
+def coerce_extend_scalar(raw: str) -> Any:
+    value = raw.strip().strip('"').strip("'")
+    lowered = value.lower()
+    if lowered in {"true", "yes", "on"}:
+        return True
+    if lowered in {"false", "no", "off"}:
+        return False
+    if re.fullmatch(r"-?\d+", value):
+        return int(value)
+    if re.fullmatch(r"-?\d+\.\d+", value):
+        return float(value)
+    return value
+
+
+def parse_extend_file(path: Path) -> dict[str, Any]:
+    values: dict[str, Any] = {}
+    if not path.exists():
+        return values
+
+    current_list_key: str | None = None
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        stripped = raw_line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+
+        list_match = re.match(r"^-\s+(.*)$", stripped)
+        if current_list_key and list_match:
+            values.setdefault(current_list_key, []).append(coerce_extend_scalar(list_match.group(1)))
+            continue
+
+        key_match = re.match(r"^([A-Za-z0-9_-]+):\s*(.*)$", stripped)
+        if not key_match:
+            current_list_key = None
+            continue
+
+        key, raw_value = key_match.groups()
+        if raw_value:
+            values[key] = coerce_extend_scalar(raw_value)
+            current_list_key = None
+            continue
+
+        values[key] = []
+        current_list_key = key
+
+    return values
+
+
+def load_extend_settings(skill_name: str = "wechat-hot-writer") -> dict[str, Any]:
+    for path in configured_extend_file_paths(skill_name):
+        if path.exists():
+            return parse_extend_file(path)
+    return {}
+
+
+def resolve_writer_preferences(skill_name: str = "wechat-hot-writer") -> dict[str, Any]:
+    preferences = copy.deepcopy(DEFAULT_WRITER_PREFERENCES)
+    overrides = load_extend_settings(skill_name)
+
+    for key in ("lane", "fallback_query"):
+        value = overrides.get(key)
+        if isinstance(value, str) and value.strip():
+            preferences[key] = value.strip()
+
+    for key in ("min_reader_relevance", "max_risk"):
+        value = overrides.get(key)
+        if isinstance(value, (int, float)):
+            preferences[key] = float(value)
+
+    for key in ("title_templates", "style_notes"):
+        value = overrides.get(key)
+        if isinstance(value, list):
+            cleaned = [str(item).strip() for item in value if str(item).strip()]
+            if cleaned:
+                preferences[key] = cleaned
+
+    return preferences
 
 
 def resolve_wechat_credentials() -> dict[str, str] | None:
@@ -796,6 +908,13 @@ def discover_topics(args: argparse.Namespace) -> int:
     failures: list[dict[str, str]] = []
     history_payload = load_history_payload(args.history_file)
     source_mode = "hybrid" if args.source_mode == "auto" else args.source_mode
+    preferences = resolve_writer_preferences()
+    max_risk = args.max_risk if args.max_risk is not None else float(preferences["max_risk"])
+    min_reader_relevance = (
+        args.min_reader_relevance
+        if args.min_reader_relevance is not None
+        else float(preferences["min_reader_relevance"])
+    )
 
     opencli_ready = False
     if source_mode in {"hybrid", "opencli"}:
@@ -846,14 +965,14 @@ def discover_topics(args: argparse.Namespace) -> int:
     kept = [
         topic
         for topic in results
-        if args.allow_high_risk or topic["compliance_risk"] < args.max_risk
+        if args.allow_high_risk or topic["compliance_risk"] < max_risk
     ]
-    kept = [topic for topic in kept if topic["reader_relevance"] >= args.min_reader_relevance]
+    kept = [topic for topic in kept if topic["reader_relevance"] >= min_reader_relevance]
 
-    strong_topics = [topic for topic in kept if topic["reader_relevance"] >= max(args.min_reader_relevance, 0.48)]
+    strong_topics = [topic for topic in kept if topic["reader_relevance"] >= max(min_reader_relevance, 0.48)]
 
     if len(strong_topics) < args.limit and opencli_ready:
-        fallback_query = args.fallback_query or "中老年 健康 养生 银发 睡眠 饮食 走路 家庭 防骗"
+        fallback_query = args.fallback_query or str(preferences["fallback_query"])
         try:
             payload = run_opencli_json(
                 [
@@ -871,7 +990,7 @@ def discover_topics(args: argparse.Namespace) -> int:
             )
             for item in payload:
                 topic = normalize_topic("google-news", item, max(args.limit, args.per_source))
-                if args.allow_high_risk or topic["compliance_risk"] < args.max_risk:
+                if args.allow_high_risk or topic["compliance_risk"] < max_risk:
                     kept.append(topic)
         except Exception as exc:
             failures.append({"source": "google-news", "error": str(exc)})
@@ -894,12 +1013,12 @@ def discover_topics(args: argparse.Namespace) -> int:
     topics = sorted(enriched_topics, key=lambda item: item["score"], reverse=True)[: args.limit]
     output = {
         "generated_at": now_iso(),
-        "lane": "中老年健康与银发生活",
+        "lane": preferences["lane"],
         "source_mode": source_mode,
         "filters": {
             "allow_high_risk": args.allow_high_risk,
-            "max_risk": args.max_risk,
-            "min_reader_relevance": args.min_reader_relevance,
+            "max_risk": max_risk,
+            "min_reader_relevance": min_reader_relevance,
         },
         "history": {
             "path": args.history_file or None,
@@ -941,13 +1060,20 @@ def pick_topic(payload: Any, topic_index: int) -> dict[str, Any]:
         raise ValueError(f"topic index {topic_index} out of range") from exc
 
 
-def suggest_titles(topic: dict[str, Any]) -> list[str]:
+def suggest_titles(topic: dict[str, Any], preferences: dict[str, Any] | None = None) -> list[str]:
     title = topic["title"]
-    return [
-        f"从「{title}」说起，很多家庭都容易忽视这件事",
-        f"看到「{title}」，更该提醒家里人的是这几个细节",
-        f"别只盯着「{title}」，真正要紧的是后面这一步",
-    ]
+    profile = preferences or resolve_writer_preferences()
+    templates = profile.get("title_templates", DEFAULT_TITLE_TEMPLATES)
+    if not isinstance(templates, list):
+        templates = DEFAULT_TITLE_TEMPLATES
+    cleaned_templates = [str(template).strip() for template in templates if str(template).strip()]
+    if len(cleaned_templates) < 3:
+        for fallback in DEFAULT_TITLE_TEMPLATES:
+            if fallback not in cleaned_templates:
+                cleaned_templates.append(fallback)
+            if len(cleaned_templates) == 3:
+                break
+    return [template.format(title=title) for template in cleaned_templates[:3]]
 
 
 def suggest_keywords_for_topic(topic: dict[str, Any]) -> list[str]:
@@ -974,7 +1100,8 @@ def suggest_keywords_for_topic(topic: dict[str, Any]) -> list[str]:
     return deduped[:5]
 
 
-def scaffold_article(topic: dict[str, Any], benchmark_url: str | None) -> dict[str, Any]:
+def scaffold_article(topic: dict[str, Any], benchmark_url: str | None, preferences: dict[str, Any] | None = None) -> dict[str, Any]:
+    profile = preferences or resolve_writer_preferences()
     summary_hint = f"用 2 到 3 句概括「{topic['title']}」的事实背景、核心判断和现实意义。语气克制，避免热搜体表达。"
     outline = [
         {"heading": section, "goal": goal}
@@ -997,7 +1124,7 @@ def scaffold_article(topic: dict[str, Any], benchmark_url: str | None) -> dict[s
         body_lines.append("")
     return {
         "topic": topic,
-        "titles": suggest_titles(topic),
+        "titles": suggest_titles(topic, profile),
         "summary": summary_hint,
         "outline": outline,
         "body_markdown": "\n".join(body_lines).strip(),
@@ -1017,14 +1144,7 @@ def scaffold_article(topic: dict[str, Any], benchmark_url: str | None) -> dict[s
         "history_snapshot": topic.get("history", {}),
         "fact_checklist": copy.deepcopy(topic["facts"]),
         "benchmark_article_url": benchmark_url,
-        "style_notes": [
-            "语气稳，像把一件事认真讲给家里人听。",
-            "删空话，但也别写成硬邦邦的报告。",
-            "先交代具体场景、人群或事件，再展开判断。",
-            "少讲大词，多讲普通人今天能做什么。",
-            "不要写成热点复述稿，也不要写成吓人的伪养生文。",
-            "健康内容别写成诊断、治疗方案、神药推荐。",
-        ],
+        "style_notes": copy.deepcopy(profile["style_notes"]),
     }
 
 
@@ -1161,9 +1281,10 @@ def markdown_to_weixin_html(markdown_text: str) -> str:
 def write_article(args: argparse.Namespace) -> int:
     topic_payload = load_json(args.topic)
     topic = pick_topic(topic_payload, args.topic_index)
+    preferences = resolve_writer_preferences()
 
     if args.scaffold:
-        scaffold = scaffold_article(topic, args.benchmark_url)
+        scaffold = scaffold_article(topic, args.benchmark_url, preferences)
         write_json(args.scaffold, scaffold)
         print(json.dumps(scaffold, ensure_ascii=False, indent=2))
         return 0
@@ -1848,8 +1969,8 @@ def build_parser() -> argparse.ArgumentParser:
     discover.add_argument("--history-window-days", type=int, default=7)
     discover.add_argument("--fallback-query", default="")
     discover.add_argument("--allow-high-risk", action="store_true")
-    discover.add_argument("--max-risk", type=float, default=0.45)
-    discover.add_argument("--min-reader-relevance", "--min-ai-relevance", dest="min_reader_relevance", type=float, default=0.38)
+    discover.add_argument("--max-risk", type=float)
+    discover.add_argument("--min-reader-relevance", "--min-ai-relevance", dest="min_reader_relevance", type=float)
     discover.add_argument("--skip-doctor", action="store_true")
     discover.add_argument("--timeout", type=int, default=35)
     discover.set_defaults(handler=discover_topics)

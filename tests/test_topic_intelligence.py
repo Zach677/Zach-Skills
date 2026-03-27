@@ -4,9 +4,11 @@ import datetime as dt
 import sys
 import unittest
 from pathlib import Path
+from tempfile import TemporaryDirectory
+from unittest import mock
 
 
-SCRIPT_DIR = Path(__file__).resolve().parents[1] / "wechat-hot-writer" / "scripts"
+SCRIPT_DIR = Path(__file__).resolve().parents[1] / "skills" / "wechat-hot-writer" / "scripts"
 sys.path.insert(0, str(SCRIPT_DIR))
 
 import topic_intelligence  # type: ignore  # noqa: E402
@@ -186,6 +188,106 @@ class FreshnessParsingTests(unittest.TestCase):
         )
 
         self.assertEqual(freshness, 1.0)
+
+
+class ExtendConfigTests(unittest.TestCase):
+    def test_configured_extend_file_paths_follow_project_xdg_user_order(self) -> None:
+        project_dir = Path("/tmp/project-root")
+        xdg_dir = Path("/tmp/xdg-home")
+        user_dir = Path("/tmp/user-home")
+
+        with mock.patch.object(wechat_hot_writer.Path, "cwd", return_value=project_dir):
+            with mock.patch.object(wechat_hot_writer.Path, "home", return_value=user_dir):
+                with mock.patch.dict(wechat_hot_writer.os.environ, {"XDG_CONFIG_HOME": str(xdg_dir)}, clear=False):
+                    paths = wechat_hot_writer.configured_extend_file_paths("wechat-hot-writer")
+
+        self.assertEqual(
+            paths,
+            (
+                project_dir / ".baoyu-skills" / "wechat-hot-writer" / "EXTEND.md",
+                xdg_dir / "baoyu-skills" / "wechat-hot-writer" / "EXTEND.md",
+                user_dir / ".baoyu-skills" / "wechat-hot-writer" / "EXTEND.md",
+            ),
+        )
+
+    def test_parse_extend_file_supports_scalars_and_lists(self) -> None:
+        with TemporaryDirectory() as tmp_dir:
+            path = Path(tmp_dir) / "EXTEND.md"
+            path.write_text(
+                "\n".join(
+                    [
+                        "# Preferences",
+                        "",
+                        "lane: 通用家庭与公共话题",
+                        "fallback_query: 民生 家庭 健康 防骗",
+                        "min_reader_relevance: 0.52",
+                        "max_risk: 0.3",
+                        "title_templates:",
+                        "- 从「{title}」说起，真正值得注意的是这几点",
+                        "- 看到「{title}」，更该关心的是背后的现实问题",
+                        "style_notes:",
+                        "- 先说人话，再说判断。",
+                        "- 别写圈内黑话。",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            payload = wechat_hot_writer.parse_extend_file(path)
+
+        self.assertEqual(payload["lane"], "通用家庭与公共话题")
+        self.assertEqual(payload["fallback_query"], "民生 家庭 健康 防骗")
+        self.assertEqual(payload["min_reader_relevance"], 0.52)
+        self.assertEqual(payload["max_risk"], 0.3)
+        self.assertEqual(
+            payload["title_templates"],
+            [
+                "从「{title}」说起，真正值得注意的是这几点",
+                "看到「{title}」，更该关心的是背后的现实问题",
+            ],
+        )
+        self.assertEqual(payload["style_notes"], ["先说人话，再说判断。", "别写圈内黑话。"])
+
+    def test_load_extend_settings_prefers_project_file(self) -> None:
+        with TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            project_path = root / "project" / ".baoyu-skills" / "wechat-hot-writer" / "EXTEND.md"
+            xdg_path = root / "xdg" / "baoyu-skills" / "wechat-hot-writer" / "EXTEND.md"
+            user_path = root / "home" / ".baoyu-skills" / "wechat-hot-writer" / "EXTEND.md"
+            project_path.parent.mkdir(parents=True, exist_ok=True)
+            xdg_path.parent.mkdir(parents=True, exist_ok=True)
+            user_path.parent.mkdir(parents=True, exist_ok=True)
+            project_path.write_text("lane: 项目配置\n", encoding="utf-8")
+            xdg_path.write_text("lane: XDG 配置\n", encoding="utf-8")
+            user_path.write_text("lane: 用户配置\n", encoding="utf-8")
+
+            with mock.patch.object(wechat_hot_writer.Path, "cwd", return_value=root / "project"):
+                with mock.patch.object(wechat_hot_writer.Path, "home", return_value=root / "home"):
+                    with mock.patch.dict(wechat_hot_writer.os.environ, {"XDG_CONFIG_HOME": str(root / "xdg")}, clear=False):
+                        payload = wechat_hot_writer.load_extend_settings("wechat-hot-writer")
+
+        self.assertEqual(payload["lane"], "项目配置")
+
+    def test_suggest_titles_uses_extend_templates_when_provided(self) -> None:
+        topic = {"title": "旧手机回收又起风波"}
+        preferences = {
+            "title_templates": [
+                "看到「{title}」，普通家庭最该先核对这件事",
+                "别被「{title}」带偏，先把这一步看明白",
+            ]
+        }
+
+        titles = wechat_hot_writer.suggest_titles(topic, preferences)
+
+        self.assertEqual(
+            titles,
+            [
+                "看到「旧手机回收又起风波」，普通家庭最该先核对这件事",
+                "别被「旧手机回收又起风波」带偏，先把这一步看明白",
+                "从「旧手机回收又起风波」说起，很多家庭都容易忽视这件事",
+            ],
+        )
 
 
 if __name__ == "__main__":
