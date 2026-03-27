@@ -22,6 +22,17 @@ from urllib.error import HTTPError, URLError
 from pathlib import Path
 from typing import Any
 
+from topic_intelligence import (
+    append_history_entry,
+    apply_topic_intelligence,
+    fetch_direct_hotspots,
+    fetch_wechat_article_summary,
+    get_wechat_access_token,
+    load_history_payload,
+    merge_stats_into_history,
+    save_history_payload,
+)
+
 
 AI_TOPIC_KEYWORDS = {
     "ai",
@@ -130,6 +141,12 @@ PUBLIC_INTEREST_KEYWORDS = {
     "食品",
     "买菜",
     "消费",
+    "回收",
+    "价格",
+    "旧手机",
+    "清明",
+    "扫墓",
+    "祭扫",
     "日常",
     "生活",
     "小龙虾",
@@ -569,8 +586,15 @@ def normalize_rank(rank: Any, limit: int) -> float:
 def normalize_freshness(raw: dict[str, Any], limit: int) -> float:
     date_value = raw.get("date")
     if date_value:
+        published = None
         try:
-            published = parsedate_to_datetime(str(date_value))
+            published = dt.datetime.fromisoformat(str(date_value))
+        except Exception:
+            try:
+                published = parsedate_to_datetime(str(date_value))
+            except Exception:
+                published = None
+        if published is not None:
             if published.tzinfo is None:
                 published = published.replace(tzinfo=dt.timezone.utc)
             age = dt.datetime.now(dt.timezone.utc) - published.astimezone(dt.timezone.utc)
@@ -584,8 +608,6 @@ def normalize_freshness(raw: dict[str, Any], limit: int) -> float:
             if age_days <= 180:
                 return 0.35
             return 0.15
-        except Exception:
-            pass
     return normalize_rank(raw.get("rank"), limit)
 
 
@@ -609,6 +631,8 @@ def estimate_reader_relevance(title: str, category: str) -> float:
     if re.search(r"\d", title):
         base += 0.05
     if any(keyword in title for keyword in ("提醒", "注意", "误区", "很多人", "家里", "父母", "老人")):
+        base += 0.08
+    if any(keyword in title for keyword in ("回收", "价格", "清明", "扫墓", "祭扫")):
         base += 0.08
     if ai_hits > 0 and priority_hits == 0 and public_hits == 0:
         base -= 0.38
@@ -641,6 +665,8 @@ def estimate_shareability(title: str, category: str) -> float:
         base += 0.05
     if any(word in title for word in ["提醒", "注意", "小心", "误区", "很多人", "原来", "终于"]):
         base += 0.1
+    if any(word in title for word in ["价格", "回收", "清明", "扫墓", "家里"]):
+        base += 0.06
     if keyword_hits(combined, AI_TOPIC_KEYWORDS) > 0 and keyword_hits(combined, READER_PRIORITY_KEYWORDS) == 0:
         base -= 0.16
     return clamp(base)
@@ -766,27 +792,56 @@ def normalize_topic(source: str, raw: dict[str, Any], limit: int) -> dict[str, A
 
 
 def discover_topics(args: argparse.Namespace) -> int:
-    ensure_opencli()
-    doctor = run_command(["opencli", "doctor"], timeout=20, check=False)
-    if doctor.returncode != 0:
-        raise RuntimeError(f"opencli doctor failed\n{doctor.stdout}\n{doctor.stderr}")
-
-    sources = [
-        ("weibo", ["weibo", "hot", "--limit", str(args.per_source)]),
-        ("zhihu", ["zhihu", "hot", "--limit", str(args.per_source)]),
-        ("bilibili", ["bilibili", "hot", "--limit", str(args.per_source)]),
-    ]
-
     results: list[dict[str, Any]] = []
     failures: list[dict[str, str]] = []
-    for source, command in sources:
-        try:
-            payload = run_opencli_json(command, timeout=args.timeout)
-            for item in payload:
-                topic = normalize_topic(source, item, args.per_source)
-                results.append(topic)
-        except Exception as exc:
-            failures.append({"source": source, "error": str(exc)})
+    history_payload = load_history_payload(args.history_file)
+    source_mode = "hybrid" if args.source_mode == "auto" else args.source_mode
+
+    opencli_ready = False
+    if source_mode in {"hybrid", "opencli"}:
+        if shutil.which("opencli") is None:
+            failures.append({"source": "opencli", "error": "opencli not found in PATH"})
+        else:
+            if args.skip_doctor:
+                opencli_ready = True
+            else:
+                doctor = run_command(["opencli", "doctor"], timeout=20, check=False)
+                opencli_ready = doctor.returncode == 0
+                if not opencli_ready:
+                    failures.append(
+                        {
+                            "source": "opencli-doctor",
+                            "error": (doctor.stderr.strip() or doctor.stdout.strip() or "opencli doctor failed"),
+                        }
+                    )
+
+        if source_mode == "opencli" and not opencli_ready:
+            raise RuntimeError("opencli mode requested, but opencli is unavailable or unhealthy")
+
+    if opencli_ready:
+        sources = [
+            ("weibo", ["weibo", "hot", "--limit", str(args.per_source)]),
+            ("zhihu", ["zhihu", "hot", "--limit", str(args.per_source)]),
+            ("bilibili", ["bilibili", "hot", "--limit", str(args.per_source)]),
+        ]
+        for source, command in sources:
+            try:
+                payload = run_opencli_json(command, timeout=args.timeout)
+                for item in payload:
+                    topic = normalize_topic(source, item, args.per_source)
+                    results.append(topic)
+            except Exception as exc:
+                failures.append({"source": source, "error": str(exc)})
+
+    if source_mode in {"hybrid", "direct"}:
+        direct_payload = fetch_direct_hotspots(
+            limit=max(args.limit * 8, args.per_source * 8, 30),
+            timeout=min(args.timeout, 20),
+        )
+        for item in direct_payload["items"]:
+            topic = normalize_topic(item["source"], item, max(args.limit, args.per_source))
+            results.append(topic)
+        failures.extend(direct_payload["failures"])
 
     kept = [
         topic
@@ -797,7 +852,7 @@ def discover_topics(args: argparse.Namespace) -> int:
 
     strong_topics = [topic for topic in kept if topic["reader_relevance"] >= max(args.min_reader_relevance, 0.48)]
 
-    if len(strong_topics) < args.limit:
+    if len(strong_topics) < args.limit and opencli_ready:
         fallback_query = args.fallback_query or "中老年 健康 养生 银发 睡眠 饮食 走路 家庭 防骗"
         try:
             payload = run_opencli_json(
@@ -828,14 +883,28 @@ def discover_topics(args: argparse.Namespace) -> int:
         if existing is None or topic["score"] > existing["score"]:
             deduped[key] = topic
 
-    topics = sorted(deduped.values(), key=lambda item: item["score"], reverse=True)[: args.limit]
+    enriched_topics = [
+        apply_topic_intelligence(
+            topic=topic,
+            history_payload=history_payload,
+            window_days=args.history_window_days,
+        )
+        for topic in deduped.values()
+    ]
+    topics = sorted(enriched_topics, key=lambda item: item["score"], reverse=True)[: args.limit]
     output = {
         "generated_at": now_iso(),
         "lane": "中老年健康与银发生活",
+        "source_mode": source_mode,
         "filters": {
             "allow_high_risk": args.allow_high_risk,
             "max_risk": args.max_risk,
             "min_reader_relevance": args.min_reader_relevance,
+        },
+        "history": {
+            "path": args.history_file or None,
+            "window_days": args.history_window_days,
+            "article_count": len(history_payload.get("articles", [])),
         },
         "topics": topics,
         "failures": failures,
@@ -882,6 +951,10 @@ def suggest_titles(topic: dict[str, Any]) -> list[str]:
 
 
 def suggest_keywords_for_topic(topic: dict[str, Any]) -> list[str]:
+    existing = topic.get("topic_keywords") or topic.get("seo", {}).get("keywords")
+    if isinstance(existing, list) and len([item for item in existing if str(item).strip()]) >= 3:
+        return [str(item).strip() for item in existing if str(item).strip()][:5]
+
     title = str(topic.get("title", "")).strip()
     category = str(topic.get("category", "")).strip()
     combined = f"{title} {category}"
@@ -940,6 +1013,8 @@ def scaffold_article(topic: dict[str, Any], benchmark_url: str | None) -> dict[s
             f"为文章配一张信息图或提醒图，主题：{topic['title']}，风格克制、好懂、适合公众号正文，不要装饰性空图。",
         ],
         "keywords": suggest_keywords_for_topic(topic),
+        "seo_snapshot": topic.get("seo", {}),
+        "history_snapshot": topic.get("history", {}),
         "fact_checklist": copy.deepcopy(topic["facts"]),
         "benchmark_article_url": benchmark_url,
         "style_notes": [
@@ -1605,6 +1680,77 @@ def deliver_weixin(args: argparse.Namespace) -> int:
     return 0
 
 
+def record_history(args: argparse.Namespace) -> int:
+    package = load_json(args.package)
+    history_payload = load_history_payload(args.history_file)
+    topic = package.get("topic", {}) if isinstance(package, dict) else {}
+
+    titles = package.get("titles", []) if isinstance(package, dict) else []
+    default_title = str(titles[0]).strip() if isinstance(titles, list) and titles else str(topic.get("title", "")).strip()
+    title = args.title or default_title
+    keywords = package.get("topic_keywords") or package.get("keywords") or topic.get("topic_keywords") or topic.get("seo", {}).get("keywords") or []
+    normalized_keywords = [str(item).strip() for item in keywords if str(item).strip()][:6]
+
+    entry = {
+        "title": title,
+        "published_at": args.published_at or now_iso(),
+        "topic_source": args.topic_source or ("benchmark" if args.benchmark_url else "skill"),
+        "topic_keywords": normalized_keywords,
+        "topic_url": topic.get("url") or args.topic_url or "",
+        "word_count": package.get("word_count"),
+        "media_id": args.media_id or "",
+        "summary": package.get("summary", ""),
+        "framework": args.framework or topic.get("category") or "",
+        "stats": None,
+    }
+    if args.notes:
+        entry["notes"] = args.notes
+
+    updated = append_history_entry(history_payload, entry)
+    save_history_payload(args.history_file, updated)
+
+    result = {
+        "history_file": args.history_file,
+        "entry": entry,
+        "article_count": len(updated.get("articles", [])),
+    }
+    print(json.dumps(result, ensure_ascii=False, indent=2))
+    return 0
+
+
+def sync_history_stats(args: argparse.Namespace) -> int:
+    credentials = None
+    if args.app_id and args.app_secret:
+        credentials = {"app_id": args.app_id, "app_secret": args.app_secret, "source": "cli"}
+    else:
+        credentials = resolve_wechat_credentials()
+    if not credentials:
+        raise SystemExit("missing WeChat credentials; set WECHAT_APP_ID and WECHAT_APP_SECRET or pass --app-id/--app-secret")
+
+    history_payload = load_history_payload(args.history_file)
+    access_token = get_wechat_access_token(credentials["app_id"], credentials["app_secret"], timeout=args.timeout)
+    now_value = dt.datetime.now().astimezone()
+    stats_list: list[dict[str, Any]] = []
+
+    for offset in range(args.days):
+        target_date = (now_value - dt.timedelta(days=offset + 1)).date().isoformat()
+        daily_stats = fetch_wechat_article_summary(access_token, target_date, target_date, timeout=args.timeout)
+        stats_list.extend(daily_stats)
+
+    updated = merge_stats_into_history(history_payload, stats_list)
+    save_history_payload(args.history_file, updated)
+
+    result = {
+        "history_file": args.history_file,
+        "credential_source": credentials["source"],
+        "days": args.days,
+        "stats_count": len(stats_list),
+        "articles": updated.get("articles", []),
+    }
+    print(json.dumps(result, ensure_ascii=False, indent=2))
+    return 0
+
+
 def build_baoyu_delivery_info(package: dict[str, Any], staging_dir: Path) -> dict[str, Any]:
     if not baoyu_wechat_available():
         return {
@@ -1697,10 +1843,14 @@ def build_parser() -> argparse.ArgumentParser:
     discover.add_argument("--limit", type=int, default=8)
     discover.add_argument("--per-source", type=int, default=8)
     discover.add_argument("--output", default="out/topics.json")
+    discover.add_argument("--source-mode", choices=("auto", "hybrid", "opencli", "direct"), default="hybrid")
+    discover.add_argument("--history-file", default="")
+    discover.add_argument("--history-window-days", type=int, default=7)
     discover.add_argument("--fallback-query", default="")
     discover.add_argument("--allow-high-risk", action="store_true")
     discover.add_argument("--max-risk", type=float, default=0.45)
     discover.add_argument("--min-reader-relevance", "--min-ai-relevance", dest="min_reader_relevance", type=float, default=0.38)
+    discover.add_argument("--skip-doctor", action="store_true")
     discover.add_argument("--timeout", type=int, default=35)
     discover.set_defaults(handler=discover_topics)
 
@@ -1729,6 +1879,27 @@ def build_parser() -> argparse.ArgumentParser:
     deliver.add_argument("--prepare-session", action="store_true")
     deliver.add_argument("--timeout", type=int, default=40)
     deliver.set_defaults(handler=deliver_weixin)
+
+    history = subparsers.add_parser("record-history", help="Append or update article history after draft creation or publish")
+    history.add_argument("--package", required=True, help="Path to the packaged article JSON")
+    history.add_argument("--history-file", required=True, help="Path to the history JSON file")
+    history.add_argument("--media-id", default="")
+    history.add_argument("--published-at", default="")
+    history.add_argument("--title", default="")
+    history.add_argument("--topic-source", default="")
+    history.add_argument("--topic-url", default="")
+    history.add_argument("--framework", default="")
+    history.add_argument("--benchmark-url", default="")
+    history.add_argument("--notes", default="")
+    history.set_defaults(handler=record_history)
+
+    sync_stats = subparsers.add_parser("sync-history-stats", help="Pull WeChat article stats into the history file")
+    sync_stats.add_argument("--history-file", required=True, help="Path to the history JSON file")
+    sync_stats.add_argument("--days", type=int, default=3)
+    sync_stats.add_argument("--app-id", default="")
+    sync_stats.add_argument("--app-secret", default="")
+    sync_stats.add_argument("--timeout", type=int, default=20)
+    sync_stats.set_defaults(handler=sync_history_stats)
 
     return parser
 

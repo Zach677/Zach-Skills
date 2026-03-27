@@ -3,9 +3,10 @@
 `wechat-hot-writer` is a Codex-style skill package for:
 
 - finding WeChat-friendly hot topics
-- drafting AI / tech commentary articles
+- drafting middle-aged-reader-friendly public-interest articles
 - preparing cover and illustration assets
 - staging drafts into WeChat Official Account workflows
+- recording publish history and syncing article stats back into that history
 
 It is designed around a practical publishing loop:
 
@@ -13,6 +14,7 @@ It is designed around a practical publishing loop:
 2. scaffold and write the article
 3. prepare visuals
 4. stage or publish a WeChat draft
+5. record and review performance signals for the next round
 
 This repository contains the skill package itself, not a standalone web app.
 
@@ -86,9 +88,16 @@ There are three separate config surfaces to understand.
 
 ### 1. Topic discovery
 
-Topic discovery uses `opencli`.
+Topic discovery prefers `hybrid` mode.
 
-Some sources can work unauthenticated, but browser-backed sources are more reliable when Chrome is open and already logged in:
+In `hybrid` mode the script combines:
+
+- browser-backed `opencli` sources when Chrome and the bridge are healthy
+- direct hot-board APIs from Weibo, Toutiao, and Baidu
+- SEO suggestion data from Baidu and 360
+- optional recent-history penalties from your own `history.json`
+
+Browser-backed sources are more reliable when Chrome is open and already logged in:
 
 - Weibo
 - X / Twitter
@@ -169,7 +178,9 @@ The script auto-detects the first available provider in this order:
 
 ```bash
 python3 wechat-hot-writer/scripts/wechat_hot_writer.py discover-topics \
+  --source-mode hybrid \
   --limit 8 \
+  --history-file out/history.json \
   --output out/topics.json
 ```
 
@@ -234,6 +245,25 @@ This generates:
 - a WeChat body HTML file
 - ready-to-run Baoyu API and browser commands when available
 
+### 6. Record history after draft approval or publish
+
+```bash
+python3 wechat-hot-writer/scripts/wechat_hot_writer.py record-history \
+  --package out/article-package.json \
+  --history-file out/history.json \
+  --media-id your_media_id
+```
+
+### 7. Sync article stats back into history
+
+```bash
+python3 wechat-hot-writer/scripts/wechat_hot_writer.py sync-history-stats \
+  --history-file out/history.json \
+  --days 7
+```
+
+This uses the same WeChat AppID/AppSecret env setup described above.
+
 ## Command Reference
 
 ### `discover-topics`
@@ -246,6 +276,9 @@ Important options:
 
 - `--limit`
 - `--per-source`
+- `--source-mode`
+- `--history-file`
+- `--history-window-days`
 - `--allow-high-risk`
 - `--max-risk`
 - `--min-ai-relevance`

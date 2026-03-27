@@ -31,6 +31,11 @@ Every discovered topic should keep these fields:
 ```
 
 The implementation may add `score`, `score_breakdown`, `category`, or `raw`, but the fields above are the contract.
+It may also add:
+
+- `seo`: keyword suggestions, related keywords, and an SEO score
+- `topic_keywords`: the keyword set that should be written into history
+- `history`: recent-overlap penalty info for de-duplication
 
 ## Source priority
 
@@ -42,6 +47,12 @@ Use this order by default:
 4. Google News fallback
 
 The point is not “most viral”. The point is “fresh enough, close enough to ordinary life, easy enough to explain, safe enough to publish, and naturally convertible into middle-aged-reader writing”.
+
+In practice, prefer `hybrid` collection:
+
+1. `opencli` hot sources when browser discovery is healthy
+2. direct hot-board APIs from Weibo, Toutiao, and Baidu
+3. Google News fallback only when needed
 
 ## Score formula
 
@@ -55,6 +66,8 @@ final_score =
   * shareability
   * (1 - compliance_risk)
   * (0.55 + 0.45 * heat)
+  * seo_multiplier
+  * history_multiplier
 ```
 
 Interpretation:
@@ -65,6 +78,15 @@ Interpretation:
 - `shareability`: does it have obvious forwarding potential inside family or friend groups
 - `compliance_risk`: how likely the topic is to drag the account into restricted or high-liability lanes
 - `heat`: tie-breaker, not the sole driver
+- `seo_multiplier`: reward topics whose wording maps to real search demand
+- `history_multiplier`: down-rank topics that repeat the same core keywords inside the recent history window
+
+Recommended implementation:
+
+- `seo_multiplier = 0.82 + 0.18 * seo_score`
+- `history_multiplier = 1 - history_penalty`
+- `seo_score` should come from real suggestion counts, not vibes
+- `history_penalty` should come from your own article history, usually the last 7 days
 
 ## Editorial priority
 
@@ -81,6 +103,11 @@ Default exclusions:
 - 纯 AI 产品更新、模型发布、融资、开源、圈内工具新闻
 - 太依赖年轻互联网语境的梗
 - 空泛热点复述
+
+Additional keepers worth rescuing from generic hot boards:
+
+- 实用消费提醒，例如回收、价格、买菜、家电、日常踩坑
+- 节令/家庭节点，例如清明、祭扫、返乡、照护安排
 
 AI exception:
 
@@ -118,3 +145,13 @@ Avoid:
 - 纯情绪跟风
 - 只会制造焦虑，不给边界和动作
 - 用热点当借口硬拐到 AI / 科技评论
+
+## History feedback loop
+
+After a draft is accepted or published:
+
+1. write `title`, `published_at`, `topic_keywords`, `media_id`, and `word_count` into `history.json`
+2. later sync WeChat article summary stats back into the same history file
+3. on the next run, down-rank topics that hit the same core keywords within the recent window
+
+The point is not “never repeat a lane”. The point is “stop repeating the same hook too fast”.

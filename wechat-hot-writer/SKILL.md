@@ -8,6 +8,7 @@ description: Use when the user wants to find WeChat public account hot topics fo
 Use this skill for the full `find topic -> write article -> stage WeChat draft` loop.
 Default lane: `中老年健康与银发生活`, draft-first, human final review.
 If local `baoyu-post-to-wechat` credentials are configured, prefer the API draft path; otherwise fall back to browser draft staging.
+Topic discovery is now history-aware and SEO-aware, and can combine `opencli` sources with direct hot-board APIs.
 
 ## Trigger cases
 
@@ -27,8 +28,9 @@ If local `baoyu-post-to-wechat` credentials are configured, prefer the API draft
    - what makes it easy to forward in family groups
    - what should be reused vs what should not be copied
 2. Run topic discovery.
-   - Command: `python3 wechat-hot-writer/scripts/wechat_hot_writer.py discover-topics --limit 8 --output out/topics.json`
+   - Command: `python3 wechat-hot-writer/scripts/wechat_hot_writer.py discover-topics --source-mode hybrid --limit 8 --history-file out/history.json --output out/topics.json`
    - Load [references/topic_scoring.md](references/topic_scoring.md) if you need the schema, filters, or scoring details.
+   - The command adds `seo`, `topic_keywords`, and recent-history penalties to each kept topic.
 3. Pick one topic and decide the article lane before drafting:
    - `提醒型`: 误区、风险、注意事项
    - `实用型`: 饮食、睡眠、走路、家庭照护、季节建议
@@ -57,6 +59,10 @@ If local `baoyu-post-to-wechat` credentials are configured, prefer the API draft
    - what title shape worked
    - what reader angle felt closest to the account
    - what should be down-ranked next time
+11. After the draft is accepted or published, write it into history:
+   - Command: `python3 wechat-hot-writer/scripts/wechat_hot_writer.py record-history --package out/article-package.json --history-file out/history.json --media-id <media_id>`
+12. Later, sync article performance back into history:
+   - Command: `python3 wechat-hot-writer/scripts/wechat_hot_writer.py sync-history-stats --history-file out/history.json --days 7`
 
 ## Guardrails
 
@@ -68,6 +74,7 @@ If local `baoyu-post-to-wechat` credentials are configured, prefer the API draft
 - Do not click final publish for personal or unverified accounts. Stop at draft or review-ready state.
 - For browser-backed work, use `opencli`, not Playwright.
 - Before non-trivial browser actions, check `opencli doctor`.
+- For topic discovery, prefer `--source-mode hybrid`. It uses `opencli` when healthy, but still has direct hot-board coverage when browser discovery is unavailable.
 - If `mp.weixin.qq.com` lacks a stable built-in adapter, use `opencli explore`, then `opencli record` or `opencli generate` only if the user is already logged in and the session needs a site-specific flow.
 - If local `baoyu-post-to-wechat` or `baoyu-markdown-to-html` tooling is available, use them as optional accelerators, not as hard dependencies.
 - A single `mp.weixin.qq.com` article link is not a reliable full-account view. If WeChat blocks article access with verification or environment checks, treat account analysis as partial and say so.
