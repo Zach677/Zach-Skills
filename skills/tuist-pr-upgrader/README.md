@@ -24,10 +24,10 @@ Run from the repo root:
 
 ```bash
 cd skills/tuist-pr-upgrader
-# run the orchestrating script once it exists
+# run the orchestrating script referenced by this skill
 ```
 
-Describe the commands and flags here once the automation settles, keeping any credentials out of this repo.
+Document the commands and flags used by the workflow, keeping any credentials out of this repo.
 
 ## Preferences
 
