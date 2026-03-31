@@ -182,10 +182,16 @@ class TopicEnrichmentTests(unittest.TestCase):
 
 class FreshnessParsingTests(unittest.TestCase):
     def test_normalize_freshness_accepts_iso_datetime(self) -> None:
-        freshness = wechat_hot_writer.normalize_freshness(
-            {"date": "2026-03-27T13:30:00+08:00"},
-            limit=10,
-        )
+        class FixedDateTime(dt.datetime):
+            @classmethod
+            def now(cls, tz=None):  # type: ignore[override]
+                return cls(2026, 3, 27, 14, 0, tzinfo=tz or dt.timezone.utc)
+
+        with mock.patch.object(wechat_hot_writer.dt, "datetime", FixedDateTime):
+            freshness = wechat_hot_writer.normalize_freshness(
+                {"date": "2026-03-27T13:30:00+08:00"},
+                limit=10,
+            )
 
         self.assertEqual(freshness, 1.0)
 
