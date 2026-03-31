@@ -20,14 +20,7 @@ skills/tuist-pr-upgrader/
 
 ## Running the Skill
 
-Run from the repo root:
-
-```bash
-cd skills/tuist-pr-upgrader
-# run the orchestrating script referenced by this skill
-```
-
-The command surface for scanning, planning, and execution is documented by this skill and its companion script as they are added.
+This scaffold reserves `scripts/` for the CLI entry point and keeps the user-editable workflow configuration in `EXTEND.md`.
 
 ## Preferences
 
