@@ -1,11 +1,21 @@
 ---
 name: tuist-pr-upgrader
-description: Use when scanning multiple Tuist repos, upgrading their pinned Tuist version, and opening one PR per repo.
+description: Use when coordinating one-PR-per-repo Tuist upgrades across multiple repositories with config-gated automation.
 ---
 
 # Tuist PR Upgrader
 
 Tuist PR Upgrader is the shell for a skill that will scan Tuist projects, update the pinned Tuist version in `mise.toml`, and keep one upgrade PR per repo.
+
+## Preferences
+
+Read `EXTEND.md` from the first path that exists:
+
+1. `.zach-skills/tuist-pr-upgrader/EXTEND.md`
+2. `${XDG_CONFIG_HOME:-$HOME/.config}/zach-skills/tuist-pr-upgrader/EXTEND.md`
+3. `~/.zach-skills/tuist-pr-upgrader/EXTEND.md`
+
+When no `EXTEND.md` exists, stay in report-only mode.
 
 ## Trigger Cases
 
