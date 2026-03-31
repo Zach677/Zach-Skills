@@ -27,7 +27,7 @@ cd skills/tuist-pr-upgrader
 # run the orchestrating script referenced by this skill
 ```
 
-Document the commands and flags used by the workflow, keeping any credentials out of this repo.
+The command surface for scanning, planning, and execution is documented by this skill and its companion script as they are added.
 
 ## Preferences
 
