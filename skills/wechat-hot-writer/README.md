@@ -8,7 +8,7 @@
 - stage WeChat draft delivery
 - record history and sync article stats
 
-It still defaults to a middle-aged / family-caregiver lane, but it now supports an `EXTEND.md` preference layer so another user can swap the lane, fallback query, title templates, and style notes without editing the skill code.
+It still defaults to a middle-aged / family-caregiver lane, but the default taste now leans more explicitly toward practical reminders, anti-scam,适老消费, seasonal family scenes, and calm silver-life packaging. It also supports an `EXTEND.md` preference layer so another user can swap the lane, fallback query, title templates, and style notes without editing the skill code.
 
 ## Layout
 

@@ -28,10 +28,13 @@ Optional but useful:
 - Exactly 3
 - Useful, specific, not clickbait sludge
 - Default style:
-  - `从「X」说起，很多家庭都容易忽视这件事`
-  - `看到「X」，更该提醒家里人的是这几个细节`
-  - `别只盯着「X」，真正要紧的是后面这一步`
+  - `看到「X」，先别急着跟风，家里更该留意的是这几点`
+  - `碰上「X」，50岁以后真正要防的，往往不是表面这件事`
+  - `别只盯着「X」，普通家庭更该先把这一步做对`
 - Headline can carry judgment, but body should immediately anchor that judgment in a concrete person, family scene, daily habit, food item, or public event
+- Default title anchors should prefer one or more of: `季节 / 年龄 / 食物 / 症状 / 日常动作 / 家庭角色 / 公共服务场景`
+- Prefer verbs like `留意` `核对` `看明白` `提醒` `怎么做` `先别急着` `做对`
+- Avoid grief-selling, fake urgency, `围观感`, and empty `真相来了/炸锅了` framing unless the body immediately strips that away
 
 ## Body skeleton
 
@@ -68,7 +71,9 @@ Before treating a draft as good enough, run these quick tests:
 - `45+理解测试`: can a middle-aged or older reader understand the title and opening without extra context
 - `群聊转述测试`: can the core point be retold in one calm sentence inside a family group
 - `有用而不吓人`: does the piece give action and boundary, instead of just制造焦虑
+- `具体锚点测试`: does the title land on a season, age group, food, symptom, routine, family role, or service scene
 - `健康边界测试`: if this is a wellness article, is it clearly not pretending to diagnose or prescribe
+- `别卖惨测试`: if this started from a人物/悲情 story, would the article still be worth reading after you remove the emotional spectacle
 
 ## HTML rules
 

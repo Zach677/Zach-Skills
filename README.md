@@ -27,6 +27,7 @@ Each skill owns its own directory under `skills/`, along with its own:
 | Skill | Purpose | Docs |
 |---|---|---|
 | `wechat-hot-writer` | WeChat topic discovery, article packaging, visual prep, draft staging, and history sync | [skills/wechat-hot-writer/README.md](skills/wechat-hot-writer/README.md) |
+| `tuist-pr-upgrader` | Batch scan of Tuist repos, upgrade of pinned Tuist versions, and PR generation per repo | [skills/tuist-pr-upgrader/README.md](skills/tuist-pr-upgrader/README.md) |
 
 ## Repo Conventions
 
@@ -48,7 +49,7 @@ python3 scripts/new_skill.py "My New Skill" \
   --with-agent
 ```
 
-That creates `skills/my-new-skill/` with:
+That creates `skills/<skill-name>/` with:
 
 - `SKILL.md`
 - `README.md`
@@ -59,7 +60,7 @@ That creates `skills/my-new-skill/` with:
 
 Then finish the real work:
 
-1. Replace the placeholder workflow in the generated `SKILL.md`.
+1. Replace the temporary workflow in the generated `SKILL.md`.
 2. Rewrite the generated `README.md` into a real runbook.
 3. Remove optional files you don't actually need.
 4. Add or update tests under `tests/`.

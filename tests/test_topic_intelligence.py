@@ -182,12 +182,47 @@ class TopicEnrichmentTests(unittest.TestCase):
 
 class FreshnessParsingTests(unittest.TestCase):
     def test_normalize_freshness_accepts_iso_datetime(self) -> None:
-        freshness = wechat_hot_writer.normalize_freshness(
-            {"date": "2026-03-27T13:30:00+08:00"},
+        class FixedDateTime(dt.datetime):
+            @classmethod
+            def now(cls, tz=None):  # type: ignore[override]
+                return cls(2026, 3, 27, 14, 0, tzinfo=tz or dt.timezone.utc)
+
+        with mock.patch.object(wechat_hot_writer.dt, "datetime", FixedDateTime):
+            freshness = wechat_hot_writer.normalize_freshness(
+                {"date": "2026-03-27T13:30:00+08:00"},
+                limit=10,
+            )
+
+        self.assertEqual(freshness, 1.0)
+
+
+class TopicFitHeuristicsTests(unittest.TestCase):
+    def test_tragedy_story_without_practical_hook_gets_downranked(self) -> None:
+        tragedy = wechat_hot_writer.normalize_topic(
+            "weibo",
+            {
+                "title": "儿子一家去世老人骑行30年治愈自己",
+                "url": "https://example.com/a",
+                "category": "微博热搜",
+                "hot_value": 600000,
+                "date": "2026-03-29T23:21:18+00:00",
+            },
+            limit=10,
+        )
+        practical = wechat_hot_writer.normalize_topic(
+            "baidu",
+            {
+                "title": "旧手机回收价格暴涨五六倍？真相来了",
+                "url": "https://example.com/b",
+                "category": "百度热搜",
+                "hot_value": 600000,
+                "date": "2026-03-29T23:21:18+00:00",
+            },
             limit=10,
         )
 
-        self.assertEqual(freshness, 1.0)
+        self.assertLess(tragedy["reader_relevance"], practical["reader_relevance"])
+        self.assertLess(tragedy["shareability"], practical["shareability"])
 
 
 class ExtendConfigTests(unittest.TestCase):
@@ -285,7 +320,7 @@ class ExtendConfigTests(unittest.TestCase):
             [
                 "看到「旧手机回收又起风波」，普通家庭最该先核对这件事",
                 "别被「旧手机回收又起风波」带偏，先把这一步看明白",
-                "从「旧手机回收又起风波」说起，很多家庭都容易忽视这件事",
+                "看到「旧手机回收又起风波」，先别急着跟风，家里更该留意的是这几点",
             ],
         )
 

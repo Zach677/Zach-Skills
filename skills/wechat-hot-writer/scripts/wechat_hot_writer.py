@@ -143,6 +143,17 @@ PUBLIC_INTEREST_KEYWORDS = {
     "消费",
     "回收",
     "价格",
+    "补贴",
+    "适老",
+    "智能手机",
+    "微信",
+    "老年大学",
+    "课程",
+    "买票",
+    "挂号",
+    "出行",
+    "旅游",
+    "社区",
     "旧手机",
     "清明",
     "扫墓",
@@ -171,6 +182,59 @@ SHAREABLE_KEYWORDS = {
     "终于",
     "原来",
     "日常",
+}
+
+PRACTICAL_ACTION_KEYWORDS = {
+    "提醒",
+    "注意",
+    "误区",
+    "小心",
+    "先别",
+    "先把",
+    "看明白",
+    "核对",
+    "步骤",
+    "清单",
+    "怎么做",
+    "怎么办",
+    "避坑",
+    "花粉",
+    "过敏",
+    "睡眠",
+    "锻炼",
+    "运动",
+    "晨练",
+    "散步",
+    "暴走",
+    "慢启动",
+    "焯水",
+    "食用",
+    "防骗",
+    "补贴",
+    "回收",
+    "智能手机",
+    "微信",
+    "老年大学",
+    "课程",
+    "买票",
+    "挂号",
+    "清明",
+    "祭扫",
+    "旅游",
+    "出行",
+}
+
+TRAGEDY_SENSATION_KEYWORDS = {
+    "去世",
+    "离世",
+    "身亡",
+    "痛哭",
+    "崩溃",
+    "遗体",
+    "失联",
+    "噩耗",
+    "遇难",
+    "治愈自己",
 }
 
 GENERAL_RISK_KEYWORDS = {
@@ -244,9 +308,9 @@ REQUIRED_SECTIONS = [
 ]
 
 DEFAULT_TITLE_TEMPLATES = [
-    "从「{title}」说起，很多家庭都容易忽视这件事",
-    "看到「{title}」，更该提醒家里人的是这几个细节",
-    "别只盯着「{title}」，真正要紧的是后面这一步",
+    "看到「{title}」，先别急着跟风，家里更该留意的是这几点",
+    "碰上「{title}」，50岁以后真正要防的，往往不是表面这件事",
+    "别只盯着「{title}」，普通家庭更该先把这一步做对",
 ]
 
 DEFAULT_STYLE_NOTES = [
@@ -254,15 +318,16 @@ DEFAULT_STYLE_NOTES = [
     "删空话，但也别写成硬邦邦的报告。",
     "先交代具体场景、人群或事件，再展开判断。",
     "少讲大词，多讲普通人今天能做什么。",
+    "优先写提醒、核对、清单、步骤，少写卖惨和围观感叹。",
     "不要写成热点复述稿，也不要写成吓人的伪养生文。",
     "健康内容别写成诊断、治疗方案、神药推荐。",
 ]
 
 DEFAULT_WRITER_PREFERENCES = {
     "lane": "中老年健康与银发生活",
-    "fallback_query": "中老年 健康 养生 银发 睡眠 饮食 走路 家庭 防骗",
-    "min_reader_relevance": 0.38,
-    "max_risk": 0.45,
+    "fallback_query": "季节提醒 中老年 健康 睡眠 饮食 锻炼 食品安全 家庭 防骗 适老消费",
+    "min_reader_relevance": 0.42,
+    "max_risk": 0.38,
     "title_templates": DEFAULT_TITLE_TEMPLATES,
     "style_notes": DEFAULT_STYLE_NOTES,
 }
@@ -728,24 +793,33 @@ def keyword_hits(text: str, keywords: set[str]) -> int:
     return sum(1 for keyword in keywords if keyword.lower() in text_lower)
 
 
+def has_any_keyword(text: str, keywords: set[str]) -> bool:
+    return keyword_hits(text, keywords) > 0
+
+
 def estimate_reader_relevance(title: str, category: str) -> float:
     combined = f"{title} {category}".strip()
     priority_hits = keyword_hits(combined, READER_PRIORITY_KEYWORDS)
     wellness_hits = keyword_hits(combined, WELLNESS_KEYWORDS)
     family_hits = keyword_hits(combined, FAMILY_KEYWORDS)
     public_hits = keyword_hits(combined, PUBLIC_INTEREST_KEYWORDS)
+    action_hits = keyword_hits(combined, PRACTICAL_ACTION_KEYWORDS)
     ai_hits = keyword_hits(combined, AI_TOPIC_KEYWORDS)
+    tragedy_hits = keyword_hits(combined, TRAGEDY_SENSATION_KEYWORDS)
     base = 0.12
     base += min(priority_hits, 6) * 0.1
     base += min(wellness_hits, 3) * 0.05
     base += min(family_hits, 3) * 0.06
     base += min(public_hits, 3) * 0.05
+    base += min(action_hits, 3) * 0.04
     if re.search(r"\d", title):
         base += 0.05
     if any(keyword in title for keyword in ("提醒", "注意", "误区", "很多人", "家里", "父母", "老人")):
         base += 0.08
     if any(keyword in title for keyword in ("回收", "价格", "清明", "扫墓", "祭扫")):
         base += 0.08
+    if tragedy_hits > 0 and action_hits == 0 and public_hits == 0:
+        base -= 0.18
     if ai_hits > 0 and priority_hits == 0 and public_hits == 0:
         base -= 0.38
     elif ai_hits > 0:
@@ -761,6 +835,8 @@ def estimate_explainability(title: str, category: str) -> float:
         base += 0.12
     if keyword_hits(title, READER_PRIORITY_KEYWORDS) > 0:
         base += 0.14
+    if keyword_hits(title, PRACTICAL_ACTION_KEYWORDS) > 0:
+        base += 0.08
     if category and category not in RISK_CATEGORIES:
         base += 0.06
     if any(word in title for word in ["直播", "怒了", "曝", "塌房", "热议"]):
@@ -773,12 +849,17 @@ def estimate_shareability(title: str, category: str) -> float:
     base = 0.34
     base += min(keyword_hits(combined, SHAREABLE_KEYWORDS), 4) * 0.1
     base += min(keyword_hits(combined, FAMILY_KEYWORDS), 2) * 0.06
+    action_hits = keyword_hits(combined, PRACTICAL_ACTION_KEYWORDS)
+    tragedy_hits = keyword_hits(combined, TRAGEDY_SENSATION_KEYWORDS)
+    base += min(action_hits, 2) * 0.04
     if re.search(r"\d", title):
         base += 0.05
     if any(word in title for word in ["提醒", "注意", "小心", "误区", "很多人", "原来", "终于"]):
         base += 0.1
     if any(word in title for word in ["价格", "回收", "清明", "扫墓", "家里"]):
         base += 0.06
+    if tragedy_hits > 0 and action_hits == 0:
+        base -= 0.18
     if keyword_hits(combined, AI_TOPIC_KEYWORDS) > 0 and keyword_hits(combined, READER_PRIORITY_KEYWORDS) == 0:
         base -= 0.16
     return clamp(base)
@@ -804,6 +885,10 @@ def build_angle_candidates(title: str) -> list[str]:
         "最后落到普通家庭今天就能执行的动作，不空喊口号",
     ]
     title_lower = title.lower()
+    if has_any_keyword(title, TRAGEDY_SENSATION_KEYWORDS):
+        candidates[0] = "先判断这条故事是不是只有情绪，没有能落回普通家庭的实际提醒"
+        candidates[1] = "如果只是卖惨或围观，就放弃；只有能落到照护、沟通或避坑时才保留"
+        candidates[2] = "结尾给出一条现实动作，不把悲情当成文章价值本身"
     if any(keyword in title for keyword in WELLNESS_KEYWORDS):
         candidates[0] = "先分清这件事属于日常提醒、习惯调整，还是已经超出自我管理边界"
         candidates[1] = "把常见误区、过度焦虑、和真正靠谱的做法分开说"
@@ -813,7 +898,7 @@ def build_angle_candidates(title: str) -> list[str]:
         candidates[1] = "把最容易忽视的预警信号讲清楚，别写成纯情绪文"
         candidates[2] = "给出一份家里人今天就能照着做的提醒清单"
     elif any(keyword in title_lower for keyword in ["openai", "gpt", "claude", "gemini", "agent", "ai"]):
-        candidates[0] = "只有当它和普通人的消费、食品、民生或家庭场景有明确关系时才保留"
+        candidates[0] = "只有当它和银发学习、数字生活、消费、食品、民生或家庭场景有明确关系时才保留"
         candidates[1] = "把技术热点翻译成大众能直接感知的生活影响"
         candidates[2] = "别写圈内黑话，直接说对普通家庭到底有没有用"
     return candidates
