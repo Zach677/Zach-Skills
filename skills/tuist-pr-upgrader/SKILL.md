@@ -5,7 +5,7 @@ description: Use when scanning multiple Tuist repos, upgrading their pinned Tuis
 
 # Tuist PR Upgrader
 
-Tuist PR Upgrader coordinates Tuist projects by updating the relevant `mise.toml` pins (including Tuist) and opening one PR per repo when permitted.
+Tuist PR Upgrader is the shell for a skill that will scan Tuist projects, update the pinned Tuist version in `mise.toml`, and keep one upgrade PR per repo.
 
 ## Trigger Cases
 
@@ -15,19 +15,18 @@ Tuist PR Upgrader coordinates Tuist projects by updating the relevant `mise.toml
 
 ## Workflow
 
-1. Read `EXTEND.md` (scan roots, include/exclude lists, `allow_push`, `allow_pr`, and verification commands) before touching any repo.
-2. For each repository under `scan_roots`, confirm it is a Tuist workspace, inspect its `mise.toml` pin, and determine the target Tuist release from the configuration.
-3. Update `mise.toml` to the agreed pin, rerun manifests via the documented verification commands, and stage the changes per repo.
-4. If `allow_push`/`allow_pr` are `true`, push and open a single PR per repo; otherwise gather the diffs into a report without touching remotes.
-5. Summarize every repo’s outcome, highlight blockers, and note the verification commands that ran.
+1. Read `EXTEND.md` before acting; without it, stay in report-only mode.
+2. Use the configured scan roots and repo filters to identify which Tuist repos belong in the workflow.
+3. Keep the skill contract centered on one repo at a time, one branch at a time, and one PR at a time.
+4. Load references on demand as the scan / plan / run implementation lands under `scripts/`.
 
 ## Guardrails
 
 - Always read `EXTEND.md` before acting; without it, stay in report-only mode and do not change repos.
 - Only interact with repos explicitly enabled by `scan_roots`, `include_repos`, and `exclude_repos` in `EXTEND.md`.
-- Push and open one PR per repo only when `allow_push` and `allow_pr` are `true`; otherwise keep the diffs local and report them.
-- Run the documented verification commands exactly as listed in `EXTEND.md`; do not invent additional verification steps.
-- Execute upgrades from each repository’s root so `mise run` and Tuist commands resolve without crossing contexts.
+- Treat push and PR creation as opt-in behavior controlled by config.
+- Keep runtime behavior narrow: pinned Tuist version changes, repo-local verification, and one PR per repo.
+- Load only the references and scripts needed for the current step.
 
 ## Files To Load On Demand
 

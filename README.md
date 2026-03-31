@@ -28,7 +28,7 @@ Each skill owns its own directory under `skills/`, along with its own:
 | Skill | Purpose | Docs |
 |---|---|---|
 | `wechat-hot-writer` | WeChat topic discovery, article packaging, visual prep, draft staging, and history sync | [skills/wechat-hot-writer/README.md](skills/wechat-hot-writer/README.md) |
-| `tuist-pr-upgrader` | Scan Tuist repos, adjust the `mise` Tuist pin, and open PRs per repo | [skills/tuist-pr-upgrader/README.md](skills/tuist-pr-upgrader/README.md) |
+| `tuist-pr-upgrader` | Scaffold for scanning Tuist repos and managing one upgrade PR per repo | [skills/tuist-pr-upgrader/README.md](skills/tuist-pr-upgrader/README.md) |
 
 ## Repo Conventions
 
