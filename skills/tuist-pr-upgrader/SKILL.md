@@ -5,7 +5,7 @@ description: Use when scanning multiple Tuist repos, upgrading their pinned Tuis
 
 # Tuist PR Upgrader
 
-Tuist PR Upgrader coordinates a batch of Tuist projects, updates their `.tuist-version`, and opens a PR per repo when approved.
+Tuist PR Upgrader coordinates Tuist projects by updating the relevant `mise.toml` pins (including Tuist) and opening one PR per repo when permitted.
 
 ## Trigger Cases
 
@@ -15,18 +15,19 @@ Tuist PR Upgrader coordinates a batch of Tuist projects, updates their `.tuist-v
 
 ## Workflow
 
-1. Read `EXTEND.md` (scan roots, include/exclude lists, `allow_push`, `allow_pr`) before touching any repo.
-2. For each repository under `scan_roots`, confirm it is a Tuist project, note its `.tuist-version`, and determine the target version.
-3. Apply the upgrade: update `.tuist-version`, regenerate manifests or run `tuist migrate` as needed, and stage the changes per repo.
-4. If `allow_push`/`allow_pr` are `true`, push the branch and open the configured PR; otherwise capture the diff and describe next steps.
-5. Summarize every repo’s outcome, surfaces blockers, and record the version we landed on.
+1. Read `EXTEND.md` (scan roots, include/exclude lists, `allow_push`, `allow_pr`, and verification commands) before touching any repo.
+2. For each repository under `scan_roots`, confirm it is a Tuist workspace, inspect its `mise.toml` pin, and determine the target Tuist release from the configuration.
+3. Update `mise.toml` to the agreed pin, rerun manifests via the documented verification commands, and stage the changes per repo.
+4. If `allow_push`/`allow_pr` are `true`, push and open a single PR per repo; otherwise gather the diffs into a report without touching remotes.
+5. Summarize every repo’s outcome, highlight blockers, and note the verification commands that ran.
 
 ## Guardrails
 
+- Always read `EXTEND.md` before acting; without it, stay in report-only mode and do not change repos.
 - Only interact with repos explicitly enabled by `scan_roots`, `include_repos`, and `exclude_repos` in `EXTEND.md`.
-- Do not push or create PRs unless `allow_push` or `allow_pr` is `true`; otherwise only prepare local diffs/reports.
-- Run upgrades from each repo’s root so Tuist regeneration commands resolve dependencies correctly.
-- Log the target Tuist version, toolchain changes, and any required follow-up instructions in your summary.
+- Push and open one PR per repo only when `allow_push` and `allow_pr` are `true`; otherwise keep the diffs local and report them.
+- Run the documented verification commands exactly as listed in `EXTEND.md`; do not invent additional verification steps.
+- Execute upgrades from each repository’s root so `mise run` and Tuist commands resolve without crossing contexts.
 
 ## Files To Load On Demand
 
