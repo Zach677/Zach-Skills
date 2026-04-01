@@ -1,6 +1,6 @@
 # Tuist PR Upgrader
 
-Minimal shell for coordinating Tuist upgrades across multiple repositories.
+Minimal shell for coordinating Tuist upgrades across multiple repositories. The current script layer covers config loading, candidate discovery, and plan-mode version analysis; repo mutation and PR creation land later.
 
 ## Layout
 
@@ -20,7 +20,14 @@ skills/tuist-pr-upgrader/
 
 ## Running the Skill
 
-This scaffold reserves `scripts/` for the CLI entry point and keeps the user-editable workflow configuration in `EXTEND.md`.
+This scaffold keeps the user-editable workflow configuration in `EXTEND.md` and reserves `scripts/` for the CLI entry point.
+
+The current planning layer is responsible for:
+
+- reading the pinned Tuist version from `mise.toml`
+- comparing it to the latest stable Tuist release
+- marking repos as `up-to-date`, `needs-upgrade`, `skipped-missing-verification`, or `skipped-config-error`
+- suggesting fallback verification commands for report-only output when repo-specific commands are missing
 
 ## Preferences
 

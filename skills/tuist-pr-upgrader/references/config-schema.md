@@ -1,6 +1,6 @@
 # Config Schema
 
-This task-level schema covers only the parser and candidate-discovery fields.
+This task-level schema covers the parser, candidate-discovery, and plan-mode fields that exist so far.
 
 ## Top-Level Keys
 
@@ -27,3 +27,18 @@ Each repo entry lives under `[repos.<name>]`.
   - Ordered list of verification commands for that repo.
 - `base_branch`
   - Optional base branch override.
+
+## Planning Notes
+
+The current planning layer derives these statuses from the config plus each repo's `mise.toml`:
+
+- `up-to-date`
+- `needs-upgrade`
+- `skipped-missing-verification`
+- `skipped-config-error`
+
+When `verify_commands` is empty, the planner stays report-only and suggests one fallback command:
+
+- `mise run test-macos` when `mise.toml` mentions `test-macos`
+- `mise run run-macos` when `mise.toml` mentions `run-macos`
+- `mise exec -- tuist generate --no-open` otherwise
