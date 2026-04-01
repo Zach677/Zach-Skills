@@ -15,7 +15,7 @@ skills/tuist-pr-upgrader/
 
 ## Setup
 
-1. Copy [EXTEND.example.md](EXTEND.example.md) into one of the supported `EXTEND.md` paths.
+1. Copy the whole Markdown file [EXTEND.example.md](EXTEND.example.md) into one of the supported `EXTEND.md` paths.
 2. Populate `scan_roots`, `include_repos`, `exclude_repos`, and the `allow_*` toggles to match your workflow.
 
 ## Running the Skill

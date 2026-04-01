@@ -6,6 +6,7 @@
 # - ~/.zach-skills/tuist-pr-upgrader/EXTEND.md
 #
 # Non-secret settings only.
+# Keep the fenced `toml` block intact; the runtime reads config from this Markdown file.
 
 ```toml
 scan_roots = ["/path/to/repos"]
