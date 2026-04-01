@@ -495,6 +495,26 @@ class RunModeTests(unittest.TestCase):
 
         self.assertEqual(url, "https://example.com/pr/match")
 
+    def test_existing_pr_for_version_raises_when_lookup_fails(self) -> None:
+        completed = subprocess.CompletedProcess(
+            args=["gh", "pr", "list"],
+            returncode=1,
+            stdout="",
+            stderr="auth failed",
+        )
+
+        with mock.patch.object(
+            tuist_pr_upgrader,
+            "run_command",
+            return_value=completed,
+        ):
+            with self.assertRaises(RuntimeError):
+                tuist_pr_upgrader.existing_pr_for_version(
+                    Path("/tmp/repo"),
+                    "4.171.2",
+                    "main",
+                )
+
     def test_run_repo_upgrade_skips_dirty_worktree(self) -> None:
         config = tuist_pr_upgrader.RepoConfig(
             name="mitori",
@@ -594,6 +614,42 @@ class RunModeTests(unittest.TestCase):
         self.assertEqual(result.branch, "chore/tuist-4-171-2")
         self.assertNotIn(["git", "push", "-u", "origin", "chore/tuist-4-171-2"], commands)
         self.assertFalse(any(cmd[:3] == ["gh", "pr", "create"] for cmd in commands if isinstance(cmd, list)))
+
+    def test_run_repo_upgrade_fails_closed_when_existing_pr_lookup_errors(self) -> None:
+        with TemporaryDirectory() as tmp_dir:
+            repo = Path(tmp_dir) / "mitori"
+            repo.mkdir()
+            (repo / "mise.toml").write_text('[tools]\ntuist = "4.162.1"\n', encoding="utf-8")
+            config = tuist_pr_upgrader.RepoConfig(
+                name="mitori",
+                path=repo,
+                verify_commands=["mise run test-macos"],
+            )
+
+            commands: list[list[str] | str] = []
+
+            def fake_run_command(*args, **kwargs):
+                commands.append(args[0])
+                return subprocess.CompletedProcess(args=args[0], returncode=0, stdout="", stderr="")
+
+            with mock.patch.object(tuist_pr_upgrader, "git_worktree_is_clean", return_value=True):
+                with mock.patch.object(tuist_pr_upgrader, "resolve_base_branch", return_value="main"):
+                    with mock.patch.object(
+                        tuist_pr_upgrader,
+                        "existing_pr_for_version",
+                        side_effect=RuntimeError("gh pr list failed"),
+                    ):
+                        with mock.patch.object(tuist_pr_upgrader, "run_command", side_effect=fake_run_command):
+                            result = tuist_pr_upgrader.run_repo_upgrade(
+                                config,
+                                target_version="4.171.2",
+                                allow_push=True,
+                                allow_pr=True,
+                                dry_run=False,
+                            )
+
+        self.assertEqual(result.status, "skipped-config-error")
+        self.assertFalse(any(cmd[:2] == ["git", "switch"] for cmd in commands if isinstance(cmd, list)))
 
     def test_run_repo_upgrade_does_not_push_or_open_pr_after_verification_failure(self) -> None:
         with TemporaryDirectory() as tmp_dir:

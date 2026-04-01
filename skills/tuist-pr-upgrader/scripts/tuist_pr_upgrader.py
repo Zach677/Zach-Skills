@@ -310,7 +310,9 @@ def existing_pr_for_version(repo: Path, version: str, base_branch: str) -> str |
         cwd=repo,
         check=False,
     )
-    if completed.returncode != 0 or not completed.stdout.strip():
+    if completed.returncode != 0:
+        raise RuntimeError("failed to query existing pull requests")
+    if not completed.stdout.strip():
         return None
     for item in json.loads(completed.stdout):
         if item.get("title") == f"chore: bump Tuist to {version}":
@@ -380,7 +382,16 @@ def run_repo_upgrade(
         )
 
     run_command(["git", "fetch", "origin"], cwd=repo_config.path)
-    pr_url = existing_pr_for_version(repo_config.path, target_version, base_branch)
+    try:
+        pr_url = existing_pr_for_version(repo_config.path, target_version, base_branch)
+    except RuntimeError:
+        return RepoRunResult(
+            name=repo_config.name,
+            status="skipped-config-error",
+            branch=None,
+            pr_url=None,
+            summary="failed to query existing pull requests",
+        )
     if pr_url is not None:
         return RepoRunResult(
             name=repo_config.name,
