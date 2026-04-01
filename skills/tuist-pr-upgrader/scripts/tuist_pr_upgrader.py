@@ -50,22 +50,32 @@ def extract_toml_block(markdown: str) -> str:
 
 def load_extend_config(path: Path) -> ExtendConfig:
     payload = tomllib.loads(extract_toml_block(path.read_text(encoding="utf-8")))
+    base_dir = path.parent
     repos_payload = payload.get("repos", {})
     repos: dict[str, RepoConfig] = {}
     for name, repo_payload in repos_payload.items():
         repos[name] = RepoConfig(
             name=name,
-            path=Path(repo_payload["path"]),
-            verify_commands=list(repo_payload.get("verify_commands", [])),
-            base_branch=repo_payload.get("base_branch"),
+            path=resolve_config_path(repo_payload["path"], base_dir),
+            verify_commands=expect_string_list(
+                repo_payload.get("verify_commands", []),
+                f"repos.{name}.verify_commands",
+            ),
+            base_branch=expect_optional_string(
+                repo_payload.get("base_branch"),
+                f"repos.{name}.base_branch",
+            ),
         )
 
     return ExtendConfig(
-        scan_roots=[Path(item) for item in payload.get("scan_roots", [])],
-        include_repos=list(payload.get("include_repos", [])),
-        exclude_repos=list(payload.get("exclude_repos", [])),
-        allow_push=bool(payload.get("allow_push", False)),
-        allow_pr=bool(payload.get("allow_pr", False)),
+        scan_roots=[
+            resolve_config_path(item, base_dir)
+            for item in expect_string_list(payload.get("scan_roots", []), "scan_roots")
+        ],
+        include_repos=expect_string_list(payload.get("include_repos", []), "include_repos"),
+        exclude_repos=expect_string_list(payload.get("exclude_repos", []), "exclude_repos"),
+        allow_push=expect_bool(payload.get("allow_push", False), "allow_push"),
+        allow_pr=expect_bool(payload.get("allow_pr", False), "allow_pr"),
         repos=repos,
     )
 
@@ -79,15 +89,45 @@ def discover_candidate_repos(scan_roots: list[Path]) -> list[Path]:
     seen: set[Path] = set()
 
     for scan_root in scan_roots:
-        if not scan_root.exists():
+        resolved_root = scan_root.resolve()
+        if not resolved_root.exists():
             continue
-        for current_root, dirnames, _filenames in os.walk(scan_root):
+        for current_root, dirnames, _filenames in os.walk(resolved_root):
             current_path = Path(current_root)
             if is_tuist_candidate(current_path):
                 resolved = current_path.resolve()
                 if resolved not in seen:
                     seen.add(resolved)
-                    discovered.append(current_path)
+                    discovered.append(resolved)
                 dirnames[:] = []
 
     return sorted(discovered)
+
+
+def expect_bool(value: object, key: str) -> bool:
+    if isinstance(value, bool):
+        return value
+    raise TypeError(f"{key} must be a boolean")
+
+
+def expect_optional_string(value: object, key: str) -> str | None:
+    if value is None:
+        return None
+    if isinstance(value, str):
+        return value
+    raise TypeError(f"{key} must be a string")
+
+
+def expect_string_list(value: object, key: str) -> list[str]:
+    if not isinstance(value, list) or any(not isinstance(item, str) for item in value):
+        raise TypeError(f"{key} must be a list of strings")
+    return list(value)
+
+
+def resolve_config_path(raw_path: object, base_dir: Path) -> Path:
+    if not isinstance(raw_path, str):
+        raise TypeError("config paths must be strings")
+    path = Path(raw_path)
+    if path.is_absolute():
+        return path
+    return base_dir / path

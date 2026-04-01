@@ -6,6 +6,7 @@ This task-level schema covers only the parser and candidate-discovery fields.
 
 - `scan_roots`
   - List of absolute or relative paths to scan for Tuist candidates.
+  - Relative paths are resolved from the directory that contains `EXTEND.md`.
 - `include_repos`
   - Optional allow-list of repo names to keep in scope.
 - `exclude_repos`
@@ -21,6 +22,7 @@ Each repo entry lives under `[repos.<name>]`.
 
 - `path`
   - Filesystem path to the repo root.
+  - Relative paths are resolved from the directory that contains `EXTEND.md`.
 - `verify_commands`
   - Ordered list of verification commands for that repo.
 - `base_branch`

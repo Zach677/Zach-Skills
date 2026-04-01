@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import sys
 import unittest
 from pathlib import Path
@@ -94,6 +95,51 @@ allow_push = true
         self.assertEqual(config.repos["mitori"].verify_commands, ["mise run test-macos"])
         self.assertEqual(config.repos["mitori"].base_branch, "main")
 
+    def test_load_extend_config_rejects_non_boolean_allow_flags(self) -> None:
+        extend = """
+# Config
+
+```toml
+scan_roots = ["/tmp/repos"]
+allow_push = "false"
+allow_pr = false
+```
+"""
+
+        with TemporaryDirectory() as tmp_dir:
+            path = Path(tmp_dir) / "EXTEND.md"
+            path.write_text(extend, encoding="utf-8")
+
+            with self.assertRaises(TypeError):
+                tuist_pr_upgrader.load_extend_config(path)
+
+    def test_load_extend_config_resolves_relative_paths_from_extend_file(self) -> None:
+        extend = """
+# Config
+
+```toml
+scan_roots = ["repos"]
+allow_push = false
+allow_pr = false
+
+[repos.demo]
+path = "repos/demo"
+verify_commands = ["mise run test-macos"]
+```
+"""
+
+        with TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            config_dir = root / "config"
+            config_dir.mkdir()
+            path = config_dir / "EXTEND.md"
+            path.write_text(extend, encoding="utf-8")
+
+            config = tuist_pr_upgrader.load_extend_config(path)
+
+        self.assertEqual(config.scan_roots, [config_dir / "repos"])
+        self.assertEqual(config.repos["demo"].path, config_dir / "repos" / "demo")
+
 
 class CandidateRepoTests(unittest.TestCase):
     def test_is_tuist_candidate_requires_project_tuist_and_mise_files(self) -> None:
@@ -128,7 +174,24 @@ class CandidateRepoTests(unittest.TestCase):
 
             discovered = tuist_pr_upgrader.discover_candidate_repos([root])
 
-        self.assertEqual(discovered, [nested_repo, valid_repo])
+        self.assertEqual(discovered, [nested_repo.resolve(), valid_repo.resolve()])
+
+    def test_discover_candidate_repos_returns_resolved_paths(self) -> None:
+        with TemporaryDirectory() as tmp_dir:
+            cwd = Path(tmp_dir)
+            repo = cwd / "repos" / "demo"
+            repo.mkdir(parents=True)
+            for name in ("Project.swift", "Tuist.swift", "mise.toml"):
+                (repo / name).write_text("", encoding="utf-8")
+
+            original_cwd = Path.cwd()
+            os.chdir(cwd)
+            try:
+                discovered = tuist_pr_upgrader.discover_candidate_repos([Path("repos")])
+            finally:
+                os.chdir(original_cwd)
+
+        self.assertEqual(discovered, [repo.resolve()])
 
 
 if __name__ == "__main__":
