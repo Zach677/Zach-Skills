@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import subprocess
 import sys
 import unittest
 from pathlib import Path
@@ -219,6 +220,139 @@ class CandidateRepoTests(unittest.TestCase):
                 os.chdir(original_cwd)
 
         self.assertEqual(discovered, [repo.resolve()])
+
+
+class PlanningTests(unittest.TestCase):
+    def test_read_pinned_tuist_version_returns_configured_version(self) -> None:
+        with TemporaryDirectory() as tmp_dir:
+            path = Path(tmp_dir) / "mise.toml"
+            path.write_text('[tools]\ntuist = "4.162.1"\n', encoding="utf-8")
+
+            version = tuist_pr_upgrader.read_pinned_tuist_version(path)
+
+        self.assertEqual(version, "4.162.1")
+
+    def test_replace_pinned_tuist_version_updates_only_tuist_entry(self) -> None:
+        text = '[tools]\npython = "3.13"\ntuist = "4.162.1"\n'
+
+        updated = tuist_pr_upgrader.replace_pinned_tuist_version(text, "4.171.2")
+
+        self.assertIn('python = "3.13"', updated)
+        self.assertIn('tuist = "4.171.2"', updated)
+        self.assertNotIn('tuist = "4.162.1"', updated)
+
+    def test_get_latest_tuist_version_uses_mise_latest(self) -> None:
+        completed = subprocess.CompletedProcess(
+            args=["mise", "latest", "tuist"],
+            returncode=0,
+            stdout="4.171.2\n",
+            stderr="",
+        )
+
+        with mock.patch.object(
+            tuist_pr_upgrader.subprocess,
+            "run",
+            return_value=completed,
+        ) as mocked_run:
+            version = tuist_pr_upgrader.get_latest_tuist_version()
+
+        self.assertEqual(version, "4.171.2")
+        mocked_run.assert_called_once()
+
+    def test_build_repo_plan_marks_up_to_date_repo(self) -> None:
+        with TemporaryDirectory() as tmp_dir:
+            repo = Path(tmp_dir) / "mitori"
+            repo.mkdir()
+            (repo / "mise.toml").write_text('[tools]\ntuist = "4.171.2"\n', encoding="utf-8")
+
+            plan = tuist_pr_upgrader.build_repo_plan(
+                tuist_pr_upgrader.RepoConfig(
+                    name="mitori",
+                    path=repo,
+                    verify_commands=["mise run test-macos"],
+                ),
+                target_version="4.171.2",
+            )
+
+        self.assertEqual(plan.status, "up-to-date")
+        self.assertEqual(plan.current_version, "4.171.2")
+        self.assertEqual(plan.target_version, "4.171.2")
+        self.assertEqual(plan.suggested_verify_commands, [])
+
+    def test_build_repo_plan_marks_repo_needing_upgrade(self) -> None:
+        with TemporaryDirectory() as tmp_dir:
+            repo = Path(tmp_dir) / "mitori"
+            repo.mkdir()
+            (repo / "mise.toml").write_text('[tools]\ntuist = "4.162.1"\n', encoding="utf-8")
+
+            plan = tuist_pr_upgrader.build_repo_plan(
+                tuist_pr_upgrader.RepoConfig(
+                    name="mitori",
+                    path=repo,
+                    verify_commands=["mise run test-macos"],
+                ),
+                target_version="4.171.2",
+            )
+
+        self.assertEqual(plan.status, "needs-upgrade")
+        self.assertEqual(plan.current_version, "4.162.1")
+
+    def test_build_repo_plan_skips_repo_without_verification_commands(self) -> None:
+        with TemporaryDirectory() as tmp_dir:
+            repo = Path(tmp_dir) / "mitori"
+            repo.mkdir()
+            (repo / "mise.toml").write_text(
+                '[tools]\ntuist = "4.162.1"\n\n[tasks.test-macos]\nrun = "bash test.sh"\n',
+                encoding="utf-8",
+            )
+
+            plan = tuist_pr_upgrader.build_repo_plan(
+                tuist_pr_upgrader.RepoConfig(
+                    name="mitori",
+                    path=repo,
+                    verify_commands=[],
+                ),
+                target_version="4.171.2",
+            )
+
+        self.assertEqual(plan.status, "skipped-missing-verification")
+        self.assertEqual(plan.suggested_verify_commands, ["mise run test-macos"])
+
+    def test_build_repo_plan_marks_invalid_mise_as_config_error(self) -> None:
+        with TemporaryDirectory() as tmp_dir:
+            repo = Path(tmp_dir) / "broken"
+            repo.mkdir()
+            (repo / "mise.toml").write_text('[tools]\npython = "3.13"\n', encoding="utf-8")
+
+            plan = tuist_pr_upgrader.build_repo_plan(
+                tuist_pr_upgrader.RepoConfig(
+                    name="broken",
+                    path=repo,
+                    verify_commands=["mise run test-macos"],
+                ),
+                target_version="4.171.2",
+            )
+
+        self.assertEqual(plan.status, "skipped-config-error")
+        self.assertIsNone(plan.current_version)
+
+    def test_render_plan_report_includes_suggested_verify_commands(self) -> None:
+        plan = tuist_pr_upgrader.RepoPlan(
+            name="mitori",
+            path=Path("/tmp/mitori"),
+            current_version="4.162.1",
+            target_version="4.171.2",
+            status="skipped-missing-verification",
+            reason="verify commands are missing",
+            verify_commands=[],
+            suggested_verify_commands=["mise run test-macos"],
+        )
+
+        report = tuist_pr_upgrader.render_plan_report([plan])
+
+        self.assertIn("mitori", report)
+        self.assertIn("skipped-missing-verification", report)
+        self.assertIn("mise run test-macos", report)
 
 
 if __name__ == "__main__":

@@ -4,12 +4,14 @@ from dataclasses import dataclass
 import os
 from pathlib import Path
 import re
+import subprocess
 import tomllib
 
 
 EXTEND_SKILL_NAME = "tuist-pr-upgrader"
 TOML_FENCE_RE = re.compile(r"```toml\s*\n(.*?)```", re.DOTALL | re.IGNORECASE)
 REQUIRED_REPO_FILES = ("Project.swift", "Tuist.swift", "mise.toml")
+TUIST_VERSION_RE = re.compile(r'(?m)^(?P<prefix>\s*tuist\s*=\s*")(?P<version>[^"]+)(?P<suffix>".*)$')
 
 
 @dataclass
@@ -28,6 +30,18 @@ class ExtendConfig:
     allow_push: bool
     allow_pr: bool
     repos: dict[str, RepoConfig]
+
+
+@dataclass
+class RepoPlan:
+    name: str
+    path: Path
+    current_version: str | None
+    target_version: str | None
+    status: str
+    reason: str | None
+    verify_commands: list[str]
+    suggested_verify_commands: list[str]
 
 
 def configured_extend_file_paths() -> tuple[Path, Path, Path]:
@@ -102,6 +116,100 @@ def discover_candidate_repos(scan_roots: list[Path]) -> list[Path]:
                 dirnames[:] = []
 
     return sorted(discovered)
+
+
+def get_latest_tuist_version() -> str:
+    completed = subprocess.run(
+        ["mise", "latest", "tuist"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return completed.stdout.strip()
+
+
+def read_pinned_tuist_version(mise_toml_path: Path) -> str | None:
+    match = TUIST_VERSION_RE.search(mise_toml_path.read_text(encoding="utf-8"))
+    if match is None:
+        return None
+    return match.group("version")
+
+
+def replace_pinned_tuist_version(text: str, version: str) -> str:
+    if TUIST_VERSION_RE.search(text) is None:
+        raise ValueError("mise.toml does not contain a pinned tuist version")
+    return TUIST_VERSION_RE.sub(rf'\g<prefix>{version}\g<suffix>', text, count=1)
+
+
+def suggest_verify_commands(repo_path: Path) -> list[str]:
+    mise_toml_path = repo_path / "mise.toml"
+    if mise_toml_path.exists():
+        content = mise_toml_path.read_text(encoding="utf-8")
+        if "test-macos" in content:
+            return ["mise run test-macos"]
+        if "run-macos" in content:
+            return ["mise run run-macos"]
+    return ["mise exec -- tuist generate --no-open"]
+
+
+def build_repo_plan(repo_config: RepoConfig, target_version: str) -> RepoPlan:
+    current_version = read_pinned_tuist_version(repo_config.path / "mise.toml")
+    suggested_verify_commands: list[str] = []
+
+    if not repo_config.verify_commands:
+        suggested_verify_commands = suggest_verify_commands(repo_config.path)
+        return RepoPlan(
+            name=repo_config.name,
+            path=repo_config.path,
+            current_version=current_version,
+            target_version=target_version,
+            status="skipped-missing-verification",
+            reason="verify commands are missing",
+            verify_commands=[],
+            suggested_verify_commands=suggested_verify_commands,
+        )
+
+    if current_version is None:
+        return RepoPlan(
+            name=repo_config.name,
+            path=repo_config.path,
+            current_version=None,
+            target_version=target_version,
+            status="skipped-config-error",
+            reason="pinned tuist version is missing",
+            verify_commands=repo_config.verify_commands,
+            suggested_verify_commands=[],
+        )
+
+    status = "up-to-date" if current_version == target_version else "needs-upgrade"
+    reason = None if status == "up-to-date" else "pinned tuist version differs from target"
+    return RepoPlan(
+        name=repo_config.name,
+        path=repo_config.path,
+        current_version=current_version,
+        target_version=target_version,
+        status=status,
+        reason=reason,
+        verify_commands=repo_config.verify_commands,
+        suggested_verify_commands=[],
+    )
+
+
+def render_plan_report(plans: list[RepoPlan]) -> str:
+    lines = ["# Tuist Upgrade Plan", ""]
+    for plan in plans:
+        lines.append(f"- `{plan.name}`: `{plan.status}`")
+        if plan.current_version is not None or plan.target_version is not None:
+            lines.append(
+                f"  current: `{plan.current_version or 'missing'}` -> target: `{plan.target_version or 'missing'}`"
+            )
+        if plan.reason:
+            lines.append(f"  reason: {plan.reason}")
+        if plan.verify_commands:
+            lines.append(f"  verify: {', '.join(plan.verify_commands)}")
+        if plan.suggested_verify_commands:
+            lines.append(f"  suggested verify: {', '.join(plan.suggested_verify_commands)}")
+    return "\n".join(lines)
 
 
 def expect_bool(value: object, key: str) -> bool:
