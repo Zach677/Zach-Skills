@@ -29,6 +29,13 @@ The current planning layer is responsible for:
 - marking repos as `up-to-date`, `needs-upgrade`, `skipped-missing-verification`, or `skipped-config-error`
 - suggesting fallback verification commands for report-only output when repo-specific commands are missing
 
+The current execution layer is responsible for:
+
+- skipping dirty worktrees before any repo mutation
+- skipping repos that already have an open PR for the target version
+- updating `mise.toml` before repo-local verification runs
+- keeping push/PR creation behind `allow_push`, `allow_pr`, and `dry_run`
+
 ## Preferences
 
 Refer to `EXTEND.example.md` for the documented configuration keys and lookup order. Without `EXTEND.md`, this scaffold stays in report-only mode.

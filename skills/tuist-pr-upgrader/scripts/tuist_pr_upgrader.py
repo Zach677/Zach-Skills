@@ -45,6 +45,15 @@ class RepoPlan:
     suggested_verify_commands: list[str]
 
 
+@dataclass
+class RepoRunResult:
+    name: str
+    status: str
+    branch: str | None
+    pr_url: str | None
+    summary: str
+
+
 def configured_extend_file_paths() -> tuple[Path, Path, Path]:
     project_root = Path.cwd()
     home = Path.home()
@@ -253,6 +262,201 @@ def render_plan_report(plans: list[RepoPlan]) -> str:
         if plan.suggested_verify_commands:
             lines.append(f"  suggested verify: {', '.join(plan.suggested_verify_commands)}")
     return "\n".join(lines)
+
+
+def run_command(
+    args: list[str] | str,
+    *,
+    cwd: Path,
+    check: bool = True,
+    shell: bool = False,
+) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        args,
+        cwd=cwd,
+        check=check,
+        shell=shell,
+        capture_output=True,
+        text=True,
+    )
+
+
+def git_worktree_is_clean(repo: Path) -> bool:
+    completed = run_command(["git", "status", "--short"], cwd=repo)
+    return completed.stdout.strip() == ""
+
+
+def resolve_base_branch(repo: Path, configured: str | None) -> str:
+    if configured:
+        return configured
+    completed = run_command(["git", "rev-parse", "--abbrev-ref", "origin/HEAD"], cwd=repo)
+    return completed.stdout.strip().removeprefix("origin/")
+
+
+def existing_pr_for_version(repo: Path, version: str, base_branch: str) -> str | None:
+    completed = run_command(
+        [
+            "gh",
+            "pr",
+            "list",
+            "--state",
+            "open",
+            "--base",
+            base_branch,
+            "--search",
+            version,
+            "--json",
+            "url",
+            "--jq",
+            ".[0].url",
+        ],
+        cwd=repo,
+        check=False,
+    )
+    url = completed.stdout.strip()
+    return url or None
+
+
+def build_branch_name(version: str) -> str:
+    return f"chore/tuist-{version.replace('.', '-')}"
+
+
+def build_pr_body(repo_plan: RepoPlan) -> str:
+    lines = [
+        f"Current version: `{repo_plan.current_version or 'missing'}`",
+        f"Target version: `{repo_plan.target_version or 'missing'}`",
+    ]
+    if repo_plan.verify_commands:
+        lines.append("")
+        lines.append("Verification:")
+        for command in repo_plan.verify_commands:
+            lines.append(f"- `{command}`")
+    return "\n".join(lines)
+
+
+def run_verification_commands(repo: Path, commands: list[str]) -> None:
+    for command in commands:
+        run_command(command, cwd=repo, shell=True)
+
+
+def run_repo_upgrade(
+    repo_config: RepoConfig,
+    *,
+    target_version: str,
+    allow_push: bool,
+    allow_pr: bool,
+    dry_run: bool,
+) -> RepoRunResult:
+    if not git_worktree_is_clean(repo_config.path):
+        return RepoRunResult(
+            name=repo_config.name,
+            status="skipped-dirty-worktree",
+            branch=None,
+            pr_url=None,
+            summary="git worktree is dirty",
+        )
+
+    current_version = read_pinned_tuist_version(repo_config.path / "mise.toml")
+    if current_version is None:
+        return RepoRunResult(
+            name=repo_config.name,
+            status="skipped-config-error",
+            branch=None,
+            pr_url=None,
+            summary="pinned tuist version is missing",
+        )
+
+    base_branch = resolve_base_branch(repo_config.path, repo_config.base_branch)
+    branch_name = build_branch_name(target_version)
+
+    if dry_run:
+        return RepoRunResult(
+            name=repo_config.name,
+            status="dry-run",
+            branch=branch_name,
+            pr_url=None,
+            summary=f"would update {current_version} -> {target_version}",
+        )
+
+    run_command(["git", "fetch", "origin"], cwd=repo_config.path)
+    pr_url = existing_pr_for_version(repo_config.path, target_version, base_branch)
+    if pr_url is not None:
+        return RepoRunResult(
+            name=repo_config.name,
+            status="skipped-existing-pr",
+            branch=None,
+            pr_url=pr_url,
+            summary="existing PR found",
+        )
+
+    run_command(["git", "switch", base_branch], cwd=repo_config.path)
+    run_command(["git", "pull", "--ff-only", "origin", base_branch], cwd=repo_config.path)
+    run_command(["git", "switch", "-c", branch_name], cwd=repo_config.path)
+
+    mise_toml_path = repo_config.path / "mise.toml"
+    updated_mise_toml = replace_pinned_tuist_version(
+        mise_toml_path.read_text(encoding="utf-8"),
+        target_version,
+    )
+    mise_toml_path.write_text(updated_mise_toml, encoding="utf-8")
+
+    try:
+        run_verification_commands(repo_config.path, repo_config.verify_commands)
+    except subprocess.CalledProcessError:
+        return RepoRunResult(
+            name=repo_config.name,
+            status="verification-failed",
+            branch=branch_name,
+            pr_url=None,
+            summary="verification commands failed",
+        )
+
+    run_command(["git", "add", "mise.toml"], cwd=repo_config.path)
+    run_command(
+        ["git", "commit", "-m", f"chore: bump Tuist to {target_version}"],
+        cwd=repo_config.path,
+    )
+
+    created_pr_url: str | None = None
+    if allow_push:
+        run_command(["git", "push", "-u", "origin", branch_name], cwd=repo_config.path)
+
+    if allow_pr:
+        repo_plan = RepoPlan(
+            name=repo_config.name,
+            path=repo_config.path,
+            current_version=current_version,
+            target_version=target_version,
+            status="needs-upgrade",
+            reason=None,
+            verify_commands=repo_config.verify_commands,
+            suggested_verify_commands=[],
+        )
+        completed = run_command(
+            [
+                "gh",
+                "pr",
+                "create",
+                "--base",
+                base_branch,
+                "--head",
+                branch_name,
+                "--title",
+                f"chore: bump Tuist to {target_version}",
+                "--body",
+                build_pr_body(repo_plan),
+            ],
+            cwd=repo_config.path,
+        )
+        created_pr_url = completed.stdout.strip() or None
+
+    return RepoRunResult(
+        name=repo_config.name,
+        status="updated",
+        branch=branch_name,
+        pr_url=created_pr_url,
+        summary=f"updated {current_version} -> {target_version}",
+    )
 
 
 def expect_bool(value: object, key: str) -> bool:

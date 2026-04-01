@@ -431,5 +431,204 @@ class PlanningTests(unittest.TestCase):
         self.assertIn("mise run test-macos", report)
 
 
+class RunModeTests(unittest.TestCase):
+    def test_build_branch_name_replaces_dots_with_dashes(self) -> None:
+        self.assertEqual(
+            tuist_pr_upgrader.build_branch_name("4.171.2"),
+            "chore/tuist-4-171-2",
+        )
+
+    def test_resolve_base_branch_prefers_configured_value(self) -> None:
+        self.assertEqual(
+            tuist_pr_upgrader.resolve_base_branch(Path("/tmp/repo"), "release"),
+            "release",
+        )
+
+    def test_resolve_base_branch_reads_origin_head_when_unset(self) -> None:
+        completed = subprocess.CompletedProcess(
+            args=["git", "rev-parse", "--abbrev-ref", "origin/HEAD"],
+            returncode=0,
+            stdout="origin/main\n",
+            stderr="",
+        )
+
+        with mock.patch.object(
+            tuist_pr_upgrader,
+            "run_command",
+            return_value=completed,
+        ) as mocked_run:
+            branch = tuist_pr_upgrader.resolve_base_branch(Path("/tmp/repo"), None)
+
+        self.assertEqual(branch, "main")
+        mocked_run.assert_called_once()
+
+    def test_run_repo_upgrade_skips_dirty_worktree(self) -> None:
+        config = tuist_pr_upgrader.RepoConfig(
+            name="mitori",
+            path=Path("/tmp/mitori"),
+            verify_commands=["mise run test-macos"],
+        )
+
+        with mock.patch.object(tuist_pr_upgrader, "git_worktree_is_clean", return_value=False):
+            result = tuist_pr_upgrader.run_repo_upgrade(
+                config,
+                target_version="4.171.2",
+                allow_push=True,
+                allow_pr=True,
+                dry_run=False,
+            )
+
+        self.assertEqual(result.status, "skipped-dirty-worktree")
+        self.assertIsNone(result.branch)
+
+    def test_run_repo_upgrade_skips_when_existing_pr_is_found(self) -> None:
+        with TemporaryDirectory() as tmp_dir:
+            repo = Path(tmp_dir) / "mitori"
+            repo.mkdir()
+            (repo / "mise.toml").write_text('[tools]\ntuist = "4.162.1"\n', encoding="utf-8")
+            config = tuist_pr_upgrader.RepoConfig(
+                name="mitori",
+                path=repo,
+                verify_commands=["mise run test-macos"],
+            )
+
+            commands: list[list[str] | str] = []
+
+            def fake_run_command(*args, **kwargs):
+                commands.append(args[0])
+                return subprocess.CompletedProcess(args=args[0], returncode=0, stdout="", stderr="")
+
+            with mock.patch.object(tuist_pr_upgrader, "git_worktree_is_clean", return_value=True):
+                with mock.patch.object(tuist_pr_upgrader, "resolve_base_branch", return_value="main"):
+                    with mock.patch.object(
+                        tuist_pr_upgrader,
+                        "existing_pr_for_version",
+                        return_value="https://example.com/pr/1",
+                    ):
+                        with mock.patch.object(tuist_pr_upgrader, "run_command", side_effect=fake_run_command):
+                            result = tuist_pr_upgrader.run_repo_upgrade(
+                                config,
+                                target_version="4.171.2",
+                                allow_push=True,
+                                allow_pr=True,
+                                dry_run=False,
+                            )
+
+        self.assertEqual(result.status, "skipped-existing-pr")
+        self.assertEqual(result.pr_url, "https://example.com/pr/1")
+        self.assertIn(["git", "fetch", "origin"], commands)
+
+    def test_run_repo_upgrade_updates_mise_before_running_verification(self) -> None:
+        with TemporaryDirectory() as tmp_dir:
+            repo = Path(tmp_dir) / "mitori"
+            repo.mkdir()
+            (repo / "mise.toml").write_text('[tools]\ntuist = "4.162.1"\n', encoding="utf-8")
+            config = tuist_pr_upgrader.RepoConfig(
+                name="mitori",
+                path=repo,
+                verify_commands=["mise run test-macos"],
+            )
+
+            commands: list[list[str] | str] = []
+
+            def fake_run_command(*args, **kwargs):
+                commands.append(args[0])
+                return subprocess.CompletedProcess(args=args[0], returncode=0, stdout="", stderr="")
+
+            def verify_after_update(repo_path: Path, verify_commands: list[str]) -> None:
+                self.assertEqual(verify_commands, ["mise run test-macos"])
+                content = (repo_path / "mise.toml").read_text(encoding="utf-8")
+                self.assertIn('tuist = "4.171.2"', content)
+
+            with mock.patch.object(tuist_pr_upgrader, "git_worktree_is_clean", return_value=True):
+                with mock.patch.object(tuist_pr_upgrader, "resolve_base_branch", return_value="main"):
+                    with mock.patch.object(tuist_pr_upgrader, "existing_pr_for_version", return_value=None):
+                        with mock.patch.object(tuist_pr_upgrader, "run_command", side_effect=fake_run_command):
+                            with mock.patch.object(
+                                tuist_pr_upgrader,
+                                "run_verification_commands",
+                                side_effect=verify_after_update,
+                            ):
+                                result = tuist_pr_upgrader.run_repo_upgrade(
+                                    config,
+                                    target_version="4.171.2",
+                                    allow_push=False,
+                                    allow_pr=False,
+                                    dry_run=False,
+                                )
+
+        self.assertEqual(result.status, "updated")
+        self.assertEqual(result.branch, "chore/tuist-4-171-2")
+        self.assertNotIn(["git", "push", "-u", "origin", "chore/tuist-4-171-2"], commands)
+
+    def test_run_repo_upgrade_does_not_push_or_open_pr_after_verification_failure(self) -> None:
+        with TemporaryDirectory() as tmp_dir:
+            repo = Path(tmp_dir) / "mitori"
+            repo.mkdir()
+            (repo / "mise.toml").write_text('[tools]\ntuist = "4.162.1"\n', encoding="utf-8")
+            config = tuist_pr_upgrader.RepoConfig(
+                name="mitori",
+                path=repo,
+                verify_commands=["mise run test-macos"],
+            )
+
+            commands: list[list[str] | str] = []
+
+            def fake_run_command(*args, **kwargs):
+                commands.append(args[0])
+                return subprocess.CompletedProcess(args=args[0], returncode=0, stdout="", stderr="")
+
+            with mock.patch.object(tuist_pr_upgrader, "git_worktree_is_clean", return_value=True):
+                with mock.patch.object(tuist_pr_upgrader, "resolve_base_branch", return_value="main"):
+                    with mock.patch.object(tuist_pr_upgrader, "existing_pr_for_version", return_value=None):
+                        with mock.patch.object(tuist_pr_upgrader, "run_command", side_effect=fake_run_command):
+                            with mock.patch.object(
+                                tuist_pr_upgrader,
+                                "run_verification_commands",
+                                side_effect=subprocess.CalledProcessError(1, "mise run test-macos"),
+                            ):
+                                result = tuist_pr_upgrader.run_repo_upgrade(
+                                    config,
+                                    target_version="4.171.2",
+                                    allow_push=True,
+                                    allow_pr=True,
+                                    dry_run=False,
+                                )
+
+        self.assertEqual(result.status, "verification-failed")
+        self.assertFalse(any(cmd[:2] == ["git", "push"] for cmd in commands if isinstance(cmd, list)))
+        self.assertFalse(any("gh" in cmd for cmd in commands))
+
+    def test_run_repo_upgrade_honors_dry_run(self) -> None:
+        with TemporaryDirectory() as tmp_dir:
+            repo = Path(tmp_dir) / "mitori"
+            repo.mkdir()
+            original = '[tools]\ntuist = "4.162.1"\n'
+            mise_toml = repo / "mise.toml"
+            mise_toml.write_text(original, encoding="utf-8")
+            config = tuist_pr_upgrader.RepoConfig(
+                name="mitori",
+                path=repo,
+                verify_commands=["mise run test-macos"],
+            )
+
+            with mock.patch.object(tuist_pr_upgrader, "git_worktree_is_clean", return_value=True):
+                with mock.patch.object(tuist_pr_upgrader, "resolve_base_branch", return_value="main"):
+                    with mock.patch.object(tuist_pr_upgrader, "existing_pr_for_version", return_value=None):
+                        with mock.patch.object(tuist_pr_upgrader, "run_command") as mocked_run:
+                            with mock.patch.object(tuist_pr_upgrader, "run_verification_commands") as mocked_verify:
+                                result = tuist_pr_upgrader.run_repo_upgrade(
+                                    config,
+                                    target_version="4.171.2",
+                                    allow_push=True,
+                                    allow_pr=True,
+                                    dry_run=True,
+                                )
+                                self.assertEqual(result.status, "dry-run")
+                                self.assertEqual(mise_toml.read_text(encoding="utf-8"), original)
+                                mocked_run.assert_not_called()
+                                mocked_verify.assert_not_called()
+
+
 if __name__ == "__main__":
     unittest.main()
