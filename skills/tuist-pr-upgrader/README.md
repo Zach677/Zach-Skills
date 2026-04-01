@@ -24,4 +24,4 @@ This scaffold reserves `scripts/` for the CLI entry point and keeps the user-edi
 
 ## Preferences
 
-Refer to `EXTEND.example.md` for the documented configuration keys; the runtime should prefer `EXTEND.md` in the order described there before using defaults.
+Refer to `EXTEND.example.md` for the documented configuration keys and lookup order. Without `EXTEND.md`, this scaffold stays in report-only mode.
