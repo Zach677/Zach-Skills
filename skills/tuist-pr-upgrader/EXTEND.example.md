@@ -14,4 +14,9 @@ include_repos = []
 exclude_repos = []
 allow_push = false
 allow_pr = false
+
+[repos.mitori]
+path = "/path/to/repos/mitori"
+verify_commands = ["mise run test-macos"]
+base_branch = "main"
 ```
