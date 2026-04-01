@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import argparse
 from dataclasses import dataclass
 import json
 import os
 from pathlib import Path
 import re
 import subprocess
+import sys
 import tomllib
 
 
@@ -53,6 +55,41 @@ class RepoRunResult:
     branch: str | None
     pr_url: str | None
     summary: str
+
+
+@dataclass
+class CliContext:
+    extend_path: Path | None
+    config: ExtendConfig | None
+
+
+def expect_bool(value: object, key: str) -> bool:
+    if isinstance(value, bool):
+        return value
+    raise TypeError(f"{key} must be a boolean")
+
+
+def expect_optional_string(value: object, key: str) -> str | None:
+    if value is None:
+        return None
+    if isinstance(value, str):
+        return value
+    raise TypeError(f"{key} must be a string")
+
+
+def expect_string_list(value: object, key: str) -> list[str]:
+    if not isinstance(value, list) or any(not isinstance(item, str) for item in value):
+        raise TypeError(f"{key} must be a list of strings")
+    return list(value)
+
+
+def resolve_config_path(raw_path: object, base_dir: Path) -> Path:
+    if not isinstance(raw_path, str):
+        raise TypeError("config paths must be strings")
+    path = Path(raw_path)
+    if path.is_absolute():
+        return path.resolve()
+    return (base_dir / path).resolve()
 
 
 def configured_extend_file_paths() -> tuple[Path, Path, Path]:
@@ -249,7 +286,7 @@ def build_repo_plan(repo_config: RepoConfig, target_version: str) -> RepoPlan:
 
 
 def render_plan_report(plans: list[RepoPlan]) -> str:
-    lines = ["# Tuist Upgrade Plan", ""]
+    lines: list[str] = []
     for plan in plans:
         lines.append(f"- `{plan.name}`: `{plan.status}`")
         if plan.current_version is not None or plan.target_version is not None:
@@ -262,6 +299,18 @@ def render_plan_report(plans: list[RepoPlan]) -> str:
             lines.append(f"  verify: {', '.join(plan.verify_commands)}")
         if plan.suggested_verify_commands:
             lines.append(f"  suggested verify: {', '.join(plan.suggested_verify_commands)}")
+    return "\n".join(lines)
+
+
+def render_run_report(results: list[RepoRunResult], *, target_version: str) -> str:
+    lines = ["# Tuist Upgrade Run", "", f"target version: `{target_version}`", ""]
+    for result in results:
+        lines.append(f"- `{result.name}`: `{result.status}`")
+        if result.branch:
+            lines.append(f"  branch: `{result.branch}`")
+        if result.pr_url:
+            lines.append(f"  pr: {result.pr_url}")
+        lines.append(f"  summary: {result.summary}")
     return "\n".join(lines)
 
 
@@ -350,7 +399,7 @@ def run_repo_upgrade(
     allow_pr: bool,
     dry_run: bool,
 ) -> RepoRunResult:
-    if not git_worktree_is_clean(repo_config.path):
+    if not dry_run and not git_worktree_is_clean(repo_config.path):
         return RepoRunResult(
             name=repo_config.name,
             status="skipped-dirty-worktree",
@@ -369,7 +418,6 @@ def run_repo_upgrade(
             summary="pinned tuist version is missing",
         )
 
-    base_branch = resolve_base_branch(repo_config.path, repo_config.base_branch)
     branch_name = build_branch_name(target_version)
 
     if dry_run:
@@ -380,6 +428,8 @@ def run_repo_upgrade(
             pr_url=None,
             summary=f"would update {current_version} -> {target_version}",
         )
+
+    base_branch = resolve_base_branch(repo_config.path, repo_config.base_branch)
 
     run_command(["git", "fetch", "origin"], cwd=repo_config.path)
     try:
@@ -471,30 +521,128 @@ def run_repo_upgrade(
     )
 
 
-def expect_bool(value: object, key: str) -> bool:
-    if isinstance(value, bool):
-        return value
-    raise TypeError(f"{key} must be a boolean")
+def find_extend_path(explicit_path: str | None) -> Path | None:
+    if explicit_path is not None:
+        return Path(explicit_path).expanduser()
+    for candidate in configured_extend_file_paths():
+        if candidate.exists():
+            return candidate
+    return None
 
 
-def expect_optional_string(value: object, key: str) -> str | None:
-    if value is None:
-        return None
-    if isinstance(value, str):
-        return value
-    raise TypeError(f"{key} must be a string")
+def load_cli_context(explicit_path: str | None) -> CliContext:
+    extend_path = find_extend_path(explicit_path)
+    if extend_path is None or not extend_path.exists():
+        return CliContext(extend_path=extend_path, config=None)
+    return CliContext(extend_path=extend_path, config=load_extend_config(extend_path))
 
 
-def expect_string_list(value: object, key: str) -> list[str]:
-    if not isinstance(value, list) or any(not isinstance(item, str) for item in value):
-        raise TypeError(f"{key} must be a list of strings")
-    return list(value)
+def command_scan(args: argparse.Namespace) -> int:
+    context = load_cli_context(args.extend)
+    if context.config is None:
+        print("# Tuist Upgrade Scan\n\nNo EXTEND.md found. Report-only mode.")
+        return 0
+
+    candidates = discover_candidate_repos(context.config.scan_roots)
+    lines = ["# Tuist Upgrade Scan", ""]
+    lines.append(f"config: `{context.extend_path}`")
+    lines.append("")
+    lines.append("candidates:")
+    for candidate in candidates:
+        lines.append(f"- `{candidate}`")
+    lines.append("")
+    lines.append("configured repos:")
+    for name, repo_config in sorted(context.config.repos.items()):
+        lines.append(f"- `{name}`: `{repo_config.path}`")
+    print("\n".join(lines))
+    return 0
 
 
-def resolve_config_path(raw_path: object, base_dir: Path) -> Path:
-    if not isinstance(raw_path, str):
-        raise TypeError("config paths must be strings")
-    path = Path(raw_path)
-    if path.is_absolute():
-        return path.resolve()
-    return (base_dir / path).resolve()
+def command_plan(args: argparse.Namespace) -> int:
+    context = load_cli_context(args.extend)
+    if context.config is None:
+        print("# Tuist Upgrade Plan\n\nNo EXTEND.md found. Report-only mode.")
+        return 0
+
+    target_version = get_latest_tuist_version()
+    scanned_repos = discover_candidate_repos(context.config.scan_roots)
+    plans = [
+        build_repo_plan(repo_config, target_version)
+        for _, repo_config in sorted(context.config.repos.items())
+    ]
+
+    lines = ["# Tuist Upgrade Plan", "", f"target version: `{target_version}`", ""]
+    lines.append("scanned repos:")
+    for repo in scanned_repos:
+        lines.append(f"- `{repo}`")
+    lines.append("")
+    lines.append(render_plan_report(plans))
+    print("\n".join(lines))
+    return 0
+
+
+def command_run(args: argparse.Namespace) -> int:
+    context = load_cli_context(args.extend)
+    if context.config is None:
+        print("# Tuist Upgrade Run\n\nNo EXTEND.md found. Report-only mode.")
+        return 0
+
+    target_version = get_latest_tuist_version()
+    results: list[RepoRunResult] = []
+
+    for _, repo_config in sorted(context.config.repos.items()):
+        plan = build_repo_plan(repo_config, target_version)
+        if plan.status == "needs-upgrade":
+            results.append(
+                run_repo_upgrade(
+                    repo_config,
+                    target_version=target_version,
+                    allow_push=context.config.allow_push,
+                    allow_pr=context.config.allow_pr,
+                    dry_run=args.dry_run,
+                )
+            )
+            continue
+
+        results.append(
+            RepoRunResult(
+                name=repo_config.name,
+                status=plan.status,
+                branch=None,
+                pr_url=None,
+                summary=plan.reason or "no action required",
+            )
+        )
+
+    print(render_run_report(results, target_version=target_version))
+    return 0
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="Scan, plan, and run Tuist upgrade workflows.")
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    scan_parser = subparsers.add_parser("scan", help="Discover configured Tuist repositories.")
+    scan_parser.add_argument("--extend", help="Path to EXTEND.md")
+    scan_parser.set_defaults(func=command_scan)
+
+    plan_parser = subparsers.add_parser("plan", help="Build an upgrade plan for configured repos.")
+    plan_parser.add_argument("--extend", help="Path to EXTEND.md")
+    plan_parser.set_defaults(func=command_plan)
+
+    run_parser = subparsers.add_parser("run", help="Execute or dry-run the upgrade workflow.")
+    run_parser.add_argument("--extend", help="Path to EXTEND.md")
+    run_parser.add_argument("--dry-run", action="store_true", help="Report actions without mutating repos.")
+    run_parser.set_defaults(func=command_run)
+
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    return args.func(args)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -42,3 +42,14 @@ When `verify_commands` is empty, the planner stays report-only and suggests one 
 - `mise run test-macos` when `mise.toml` mentions `test-macos`
 - `mise run run-macos` when `mise.toml` mentions `run-macos`
 - `mise exec -- tuist generate --no-open` otherwise
+
+## Command Surface
+
+The current script exposes three subcommands:
+
+- `scan`
+  - Discover candidate repos under `scan_roots` and list the explicitly configured repos.
+- `plan`
+  - Read the pinned Tuist version, compare it to the latest stable release, and render planner statuses.
+- `run`
+  - Execute the guarded upgrade flow or report the intended branch/PR actions with `--dry-run`.

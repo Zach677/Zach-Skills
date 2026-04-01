@@ -719,6 +719,29 @@ class RunModeTests(unittest.TestCase):
                                 mocked_run.assert_not_called()
                                 mocked_verify.assert_not_called()
 
+    def test_run_repo_upgrade_dry_run_bypasses_dirty_worktree_block(self) -> None:
+        with TemporaryDirectory() as tmp_dir:
+            repo = Path(tmp_dir) / "mitori"
+            repo.mkdir()
+            (repo / "mise.toml").write_text('[tools]\ntuist = "4.162.1"\n', encoding="utf-8")
+            config = tuist_pr_upgrader.RepoConfig(
+                name="mitori",
+                path=repo,
+                verify_commands=["mise run test-macos"],
+            )
+
+            with mock.patch.object(tuist_pr_upgrader, "git_worktree_is_clean", return_value=False):
+                result = tuist_pr_upgrader.run_repo_upgrade(
+                    config,
+                    target_version="4.171.2",
+                    allow_push=False,
+                    allow_pr=False,
+                    dry_run=True,
+                )
+
+        self.assertEqual(result.status, "dry-run")
+        self.assertEqual(result.branch, "chore/tuist-4-171-2")
+
     def test_run_repo_upgrade_does_not_open_pr_without_push_permission(self) -> None:
         with TemporaryDirectory() as tmp_dir:
             repo = Path(tmp_dir) / "mitori"
