@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 import sys
@@ -462,6 +463,38 @@ class RunModeTests(unittest.TestCase):
         self.assertEqual(branch, "main")
         mocked_run.assert_called_once()
 
+    def test_existing_pr_for_version_returns_exact_matching_pr(self) -> None:
+        completed = subprocess.CompletedProcess(
+            args=["gh", "pr", "list"],
+            returncode=0,
+            stdout=json.dumps(
+                [
+                    {
+                        "title": "docs: mention 4.171.2 in changelog",
+                        "url": "https://example.com/pr/other",
+                    },
+                    {
+                        "title": "chore: bump Tuist to 4.171.2",
+                        "url": "https://example.com/pr/match",
+                    },
+                ]
+            ),
+            stderr="",
+        )
+
+        with mock.patch.object(
+            tuist_pr_upgrader,
+            "run_command",
+            return_value=completed,
+        ):
+            url = tuist_pr_upgrader.existing_pr_for_version(
+                Path("/tmp/repo"),
+                "4.171.2",
+                "main",
+            )
+
+        self.assertEqual(url, "https://example.com/pr/match")
+
     def test_run_repo_upgrade_skips_dirty_worktree(self) -> None:
         config = tuist_pr_upgrader.RepoConfig(
             name="mitori",
@@ -560,6 +593,7 @@ class RunModeTests(unittest.TestCase):
         self.assertEqual(result.status, "updated")
         self.assertEqual(result.branch, "chore/tuist-4-171-2")
         self.assertNotIn(["git", "push", "-u", "origin", "chore/tuist-4-171-2"], commands)
+        self.assertFalse(any(cmd[:3] == ["gh", "pr", "create"] for cmd in commands if isinstance(cmd, list)))
 
     def test_run_repo_upgrade_does_not_push_or_open_pr_after_verification_failure(self) -> None:
         with TemporaryDirectory() as tmp_dir:

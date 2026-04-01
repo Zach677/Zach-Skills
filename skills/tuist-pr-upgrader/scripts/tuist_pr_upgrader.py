@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import json
 import os
 from pathlib import Path
 import re
@@ -303,18 +304,18 @@ def existing_pr_for_version(repo: Path, version: str, base_branch: str) -> str |
             "open",
             "--base",
             base_branch,
-            "--search",
-            version,
             "--json",
-            "url",
-            "--jq",
-            ".[0].url",
+            "title,url",
         ],
         cwd=repo,
         check=False,
     )
-    url = completed.stdout.strip()
-    return url or None
+    if completed.returncode != 0 or not completed.stdout.strip():
+        return None
+    for item in json.loads(completed.stdout):
+        if item.get("title") == f"chore: bump Tuist to {version}":
+            return item.get("url")
+    return None
 
 
 def build_branch_name(version: str) -> str:
