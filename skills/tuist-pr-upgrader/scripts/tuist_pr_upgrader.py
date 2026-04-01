@@ -11,7 +11,8 @@ import tomllib
 EXTEND_SKILL_NAME = "tuist-pr-upgrader"
 TOML_FENCE_RE = re.compile(r"```toml\s*\n(.*?)```", re.DOTALL | re.IGNORECASE)
 REQUIRED_REPO_FILES = ("Project.swift", "Tuist.swift", "mise.toml")
-TUIST_VERSION_RE = re.compile(r'(?m)^(?P<prefix>\s*tuist\s*=\s*")(?P<version>[^"]+)(?P<suffix>".*)$')
+SECTION_HEADER_RE = re.compile(r"^\s*\[(?P<section>[^\]]+)\]\s*$")
+TUIST_ASSIGNMENT_RE = re.compile(r'^(?P<prefix>\s*tuist\s*=\s*")(?P<version>[^"]+)(?P<suffix>".*)$')
 
 
 @dataclass
@@ -129,16 +130,50 @@ def get_latest_tuist_version() -> str:
 
 
 def read_pinned_tuist_version(mise_toml_path: Path) -> str | None:
-    match = TUIST_VERSION_RE.search(mise_toml_path.read_text(encoding="utf-8"))
-    if match is None:
+    if not mise_toml_path.exists():
         return None
-    return match.group("version")
+    current_section: str | None = None
+    for line in mise_toml_path.read_text(encoding="utf-8").splitlines():
+        section_match = SECTION_HEADER_RE.match(line)
+        if section_match is not None:
+            current_section = section_match.group("section").strip()
+            continue
+        if current_section != "tools":
+            continue
+        assignment_match = TUIST_ASSIGNMENT_RE.match(line)
+        if assignment_match is not None:
+            return assignment_match.group("version")
+    return None
 
 
 def replace_pinned_tuist_version(text: str, version: str) -> str:
-    if TUIST_VERSION_RE.search(text) is None:
-        raise ValueError("mise.toml does not contain a pinned tuist version")
-    return TUIST_VERSION_RE.sub(rf'\g<prefix>{version}\g<suffix>', text, count=1)
+    current_section: str | None = None
+    updated_lines: list[str] = []
+    replaced = False
+
+    for line in text.splitlines():
+        section_match = SECTION_HEADER_RE.match(line)
+        if section_match is not None:
+            current_section = section_match.group("section").strip()
+            updated_lines.append(line)
+            continue
+
+        if not replaced and current_section == "tools":
+            assignment_match = TUIST_ASSIGNMENT_RE.match(line)
+            if assignment_match is not None:
+                updated_lines.append(
+                    f'{assignment_match.group("prefix")}{version}{assignment_match.group("suffix")}'
+                )
+                replaced = True
+                continue
+
+        updated_lines.append(line)
+
+    if not replaced:
+        raise ValueError("mise.toml does not contain a pinned tools.tuist version")
+
+    trailing_newline = "\n" if text.endswith("\n") else ""
+    return "\n".join(updated_lines) + trailing_newline
 
 
 def suggest_verify_commands(repo_path: Path) -> list[str]:
@@ -154,20 +189,6 @@ def suggest_verify_commands(repo_path: Path) -> list[str]:
 
 def build_repo_plan(repo_config: RepoConfig, target_version: str) -> RepoPlan:
     current_version = read_pinned_tuist_version(repo_config.path / "mise.toml")
-    suggested_verify_commands: list[str] = []
-
-    if not repo_config.verify_commands:
-        suggested_verify_commands = suggest_verify_commands(repo_config.path)
-        return RepoPlan(
-            name=repo_config.name,
-            path=repo_config.path,
-            current_version=current_version,
-            target_version=target_version,
-            status="skipped-missing-verification",
-            reason="verify commands are missing",
-            verify_commands=[],
-            suggested_verify_commands=suggested_verify_commands,
-        )
 
     if current_version is None:
         return RepoPlan(
@@ -179,6 +200,18 @@ def build_repo_plan(repo_config: RepoConfig, target_version: str) -> RepoPlan:
             reason="pinned tuist version is missing",
             verify_commands=repo_config.verify_commands,
             suggested_verify_commands=[],
+        )
+
+    if not repo_config.verify_commands:
+        return RepoPlan(
+            name=repo_config.name,
+            path=repo_config.path,
+            current_version=current_version,
+            target_version=target_version,
+            status="skipped-missing-verification",
+            reason="verify commands are missing",
+            verify_commands=[],
+            suggested_verify_commands=suggest_verify_commands(repo_config.path),
         )
 
     status = "up-to-date" if current_version == target_version else "needs-upgrade"

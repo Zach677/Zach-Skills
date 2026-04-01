@@ -232,6 +232,18 @@ class PlanningTests(unittest.TestCase):
 
         self.assertEqual(version, "4.162.1")
 
+    def test_read_pinned_tuist_version_ignores_keys_outside_tools_section(self) -> None:
+        with TemporaryDirectory() as tmp_dir:
+            path = Path(tmp_dir) / "mise.toml"
+            path.write_text(
+                '[tasks.run]\ntuist = "fake-task-value"\n\n[tools]\ntuist = "4.162.1"\n',
+                encoding="utf-8",
+            )
+
+            version = tuist_pr_upgrader.read_pinned_tuist_version(path)
+
+        self.assertEqual(version, "4.162.1")
+
     def test_replace_pinned_tuist_version_updates_only_tuist_entry(self) -> None:
         text = '[tools]\npython = "3.13"\ntuist = "4.162.1"\n'
 
@@ -240,6 +252,17 @@ class PlanningTests(unittest.TestCase):
         self.assertIn('python = "3.13"', updated)
         self.assertIn('tuist = "4.171.2"', updated)
         self.assertNotIn('tuist = "4.162.1"', updated)
+
+    def test_replace_pinned_tuist_version_updates_tools_entry_only(self) -> None:
+        text = (
+            '[tasks.run]\ntuist = "fake-task-value"\n\n'
+            '[tools]\npython = "3.13"\ntuist = "4.162.1"\n'
+        )
+
+        updated = tuist_pr_upgrader.replace_pinned_tuist_version(text, "4.171.2")
+
+        self.assertIn('tuist = "fake-task-value"', updated)
+        self.assertIn('[tools]\npython = "3.13"\ntuist = "4.171.2"', updated)
 
     def test_get_latest_tuist_version_uses_mise_latest(self) -> None:
         completed = subprocess.CompletedProcess(
@@ -318,6 +341,24 @@ class PlanningTests(unittest.TestCase):
         self.assertEqual(plan.status, "skipped-missing-verification")
         self.assertEqual(plan.suggested_verify_commands, ["mise run test-macos"])
 
+    def test_build_repo_plan_prefers_config_error_over_missing_verification(self) -> None:
+        with TemporaryDirectory() as tmp_dir:
+            repo = Path(tmp_dir) / "broken"
+            repo.mkdir()
+            (repo / "mise.toml").write_text('[tools]\npython = "3.13"\n', encoding="utf-8")
+
+            plan = tuist_pr_upgrader.build_repo_plan(
+                tuist_pr_upgrader.RepoConfig(
+                    name="broken",
+                    path=repo,
+                    verify_commands=[],
+                ),
+                target_version="4.171.2",
+            )
+
+        self.assertEqual(plan.status, "skipped-config-error")
+        self.assertEqual(plan.suggested_verify_commands, [])
+
     def test_build_repo_plan_marks_invalid_mise_as_config_error(self) -> None:
         with TemporaryDirectory() as tmp_dir:
             repo = Path(tmp_dir) / "broken"
@@ -327,6 +368,23 @@ class PlanningTests(unittest.TestCase):
             plan = tuist_pr_upgrader.build_repo_plan(
                 tuist_pr_upgrader.RepoConfig(
                     name="broken",
+                    path=repo,
+                    verify_commands=["mise run test-macos"],
+                ),
+                target_version="4.171.2",
+            )
+
+        self.assertEqual(plan.status, "skipped-config-error")
+        self.assertIsNone(plan.current_version)
+
+    def test_build_repo_plan_marks_missing_mise_file_as_config_error(self) -> None:
+        with TemporaryDirectory() as tmp_dir:
+            repo = Path(tmp_dir) / "missing"
+            repo.mkdir()
+
+            plan = tuist_pr_upgrader.build_repo_plan(
+                tuist_pr_upgrader.RepoConfig(
+                    name="missing",
                     path=repo,
                     verify_commands=["mise run test-macos"],
                 ),
