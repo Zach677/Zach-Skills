@@ -719,6 +719,44 @@ class RunModeTests(unittest.TestCase):
                                 mocked_run.assert_not_called()
                                 mocked_verify.assert_not_called()
 
+    def test_run_repo_upgrade_does_not_open_pr_without_push_permission(self) -> None:
+        with TemporaryDirectory() as tmp_dir:
+            repo = Path(tmp_dir) / "mitori"
+            repo.mkdir()
+            (repo / "mise.toml").write_text('[tools]\ntuist = "4.162.1"\n', encoding="utf-8")
+            config = tuist_pr_upgrader.RepoConfig(
+                name="mitori",
+                path=repo,
+                verify_commands=["mise run test-macos"],
+            )
+
+            commands: list[list[str] | str] = []
+
+            def fake_run_command(*args, **kwargs):
+                commands.append(args[0])
+                return subprocess.CompletedProcess(args=args[0], returncode=0, stdout="", stderr="")
+
+            with mock.patch.object(tuist_pr_upgrader, "git_worktree_is_clean", return_value=True):
+                with mock.patch.object(tuist_pr_upgrader, "resolve_base_branch", return_value="main"):
+                    with mock.patch.object(tuist_pr_upgrader, "existing_pr_for_version", return_value=None):
+                        with mock.patch.object(tuist_pr_upgrader, "run_command", side_effect=fake_run_command):
+                            with mock.patch.object(
+                                tuist_pr_upgrader,
+                                "run_verification_commands",
+                                return_value=None,
+                            ):
+                                result = tuist_pr_upgrader.run_repo_upgrade(
+                                    config,
+                                    target_version="4.171.2",
+                                    allow_push=False,
+                                    allow_pr=True,
+                                    dry_run=False,
+                                )
+
+        self.assertEqual(result.status, "updated")
+        self.assertFalse(any(cmd[:2] == ["git", "push"] for cmd in commands if isinstance(cmd, list)))
+        self.assertFalse(any(cmd[:3] == ["gh", "pr", "create"] for cmd in commands if isinstance(cmd, list)))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -433,7 +433,7 @@ def run_repo_upgrade(
     if allow_push:
         run_command(["git", "push", "-u", "origin", branch_name], cwd=repo_config.path)
 
-    if allow_pr:
+    if allow_pr and allow_push:
         repo_plan = RepoPlan(
             name=repo_config.name,
             path=repo_config.path,
