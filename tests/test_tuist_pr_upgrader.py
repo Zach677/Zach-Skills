@@ -341,6 +341,24 @@ class PlanningTests(unittest.TestCase):
         self.assertEqual(plan.status, "skipped-missing-verification")
         self.assertEqual(plan.suggested_verify_commands, ["mise run test-macos"])
 
+    def test_build_repo_plan_keeps_current_repo_up_to_date_without_verification(self) -> None:
+        with TemporaryDirectory() as tmp_dir:
+            repo = Path(tmp_dir) / "mitori"
+            repo.mkdir()
+            (repo / "mise.toml").write_text('[tools]\ntuist = "4.171.2"\n', encoding="utf-8")
+
+            plan = tuist_pr_upgrader.build_repo_plan(
+                tuist_pr_upgrader.RepoConfig(
+                    name="mitori",
+                    path=repo,
+                    verify_commands=[],
+                ),
+                target_version="4.171.2",
+            )
+
+        self.assertEqual(plan.status, "up-to-date")
+        self.assertEqual(plan.suggested_verify_commands, [])
+
     def test_build_repo_plan_prefers_config_error_over_missing_verification(self) -> None:
         with TemporaryDirectory() as tmp_dir:
             repo = Path(tmp_dir) / "broken"

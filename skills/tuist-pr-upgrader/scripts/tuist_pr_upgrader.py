@@ -202,6 +202,18 @@ def build_repo_plan(repo_config: RepoConfig, target_version: str) -> RepoPlan:
             suggested_verify_commands=[],
         )
 
+    if current_version == target_version:
+        return RepoPlan(
+            name=repo_config.name,
+            path=repo_config.path,
+            current_version=current_version,
+            target_version=target_version,
+            status="up-to-date",
+            reason=None,
+            verify_commands=repo_config.verify_commands,
+            suggested_verify_commands=[],
+        )
+
     if not repo_config.verify_commands:
         return RepoPlan(
             name=repo_config.name,
@@ -214,15 +226,13 @@ def build_repo_plan(repo_config: RepoConfig, target_version: str) -> RepoPlan:
             suggested_verify_commands=suggest_verify_commands(repo_config.path),
         )
 
-    status = "up-to-date" if current_version == target_version else "needs-upgrade"
-    reason = None if status == "up-to-date" else "pinned tuist version differs from target"
     return RepoPlan(
         name=repo_config.name,
         path=repo_config.path,
         current_version=current_version,
         target_version=target_version,
-        status=status,
-        reason=reason,
+        status="needs-upgrade",
+        reason="pinned tuist version differs from target",
         verify_commands=repo_config.verify_commands,
         suggested_verify_commands=[],
     )
