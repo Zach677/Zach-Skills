@@ -85,13 +85,13 @@ allow_push = true
 
             config = tuist_pr_upgrader.load_extend_config(path)
 
-        self.assertEqual(config.scan_roots, [Path("/tmp/repos")])
+        self.assertEqual(config.scan_roots, [Path("/tmp/repos").resolve()])
         self.assertEqual(config.include_repos, ["mitori"])
         self.assertEqual(config.exclude_repos, ["ignored"])
         self.assertFalse(config.allow_push)
         self.assertFalse(config.allow_pr)
         self.assertEqual(list(config.repos), ["mitori"])
-        self.assertEqual(config.repos["mitori"].path, Path("/tmp/repos/mitori"))
+        self.assertEqual(config.repos["mitori"].path, Path("/tmp/repos/mitori").resolve())
         self.assertEqual(config.repos["mitori"].verify_commands, ["mise run test-macos"])
         self.assertEqual(config.repos["mitori"].base_branch, "main")
 
@@ -137,8 +137,35 @@ verify_commands = ["mise run test-macos"]
 
             config = tuist_pr_upgrader.load_extend_config(path)
 
-        self.assertEqual(config.scan_roots, [config_dir / "repos"])
-        self.assertEqual(config.repos["demo"].path, config_dir / "repos" / "demo")
+        self.assertEqual(config.scan_roots, [(config_dir / "repos").resolve()])
+        self.assertEqual(config.repos["demo"].path, (config_dir / "repos" / "demo").resolve())
+
+    def test_load_extend_config_canonicalizes_parent_relative_repo_paths(self) -> None:
+        extend = """
+# Config
+
+```toml
+scan_roots = ["../repos"]
+allow_push = false
+allow_pr = false
+
+[repos.demo]
+path = "../repos/demo"
+verify_commands = ["mise run test-macos"]
+```
+"""
+
+        with TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            config_dir = root / "config"
+            config_dir.mkdir()
+            path = config_dir / "EXTEND.md"
+            path.write_text(extend, encoding="utf-8")
+
+            config = tuist_pr_upgrader.load_extend_config(path)
+
+        self.assertEqual(config.scan_roots, [(root / "repos").resolve()])
+        self.assertEqual(config.repos["demo"].path, (root / "repos" / "demo").resolve())
 
 
 class CandidateRepoTests(unittest.TestCase):

@@ -129,5 +129,5 @@ def resolve_config_path(raw_path: object, base_dir: Path) -> Path:
         raise TypeError("config paths must be strings")
     path = Path(raw_path)
     if path.is_absolute():
-        return path
-    return base_dir / path
+        return path.resolve()
+    return (base_dir / path).resolve()
