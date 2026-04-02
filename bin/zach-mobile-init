@@ -1,0 +1,247 @@
+#!/usr/bin/env python3
+"""Deterministic initializer that materializes a bootstrap template."""
+
+import argparse
+import json
+import re
+import shutil
+import stat
+import sys
+from pathlib import Path
+
+
+SUPPORTED_MODES = {"local-only", "github-backed", "github-and-tuist-cloud"}
+SUPPORTED_TEMPLATES = {"ios", "ios-catalyst"}
+DESTINATION_STRATEGIES = {"create", "reuse", "replace", "abort"}
+SUPPORTED_VISIBILITIES = {"private", "public"}
+PLACEHOLDER_PATTERN = re.compile(r"__[A-Z0-9_]+__")
+
+
+def fail(message: str, *, exit_code: int = 1) -> None:
+    print(json.dumps({"status": "error", "message": message}), file=sys.stderr)
+    sys.exit(exit_code)
+
+
+def load_config(config_path: Path) -> dict:
+    try:
+        raw = config_path.read_text()
+    except Exception as exc:
+        fail(f"Unable to read config {config_path}: {exc}")
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError as exc:
+        fail(f"Config {config_path} is not valid JSON: {exc}")
+
+
+def validate_config(config: dict) -> None:
+    required = [
+        "mode",
+        "template",
+        "template_source_path",
+        "destination_path",
+        "destination_strategy",
+        "project_name",
+        "bundle_id",
+        "ios_simulator_device",
+        "create_initial_commit",
+        "push_after_init",
+        "setup_tuist_cache",
+    ]
+    missing = [field for field in required if field not in config]
+    if missing:
+        fail(f"Config is missing required fields: {', '.join(missing)}")
+    if config["mode"] not in SUPPORTED_MODES:
+        fail(f"Unsupported mode '{config['mode']}'")
+    if config["template"] not in SUPPORTED_TEMPLATES:
+        fail("Unsupported template, expected one of ios or ios-catalyst.")
+    if config["destination_strategy"] not in DESTINATION_STRATEGIES:
+        fail(f"Unsupported destination strategy '{config['destination_strategy']}'")
+    if "setup_tuist_cloud" not in config:
+        config["setup_tuist_cloud"] = False
+    if config["mode"] in {"github-backed", "github-and-tuist-cloud"}:
+        for field in ("owner", "repo_name", "visibility"):
+            if field not in config:
+                fail(f"Config is missing required fields for GitHub-backed modes: {field}")
+        if config["visibility"] not in SUPPORTED_VISIBILITIES:
+            fail("visibility must be one of: private, public")
+
+
+def derive_full_handle(config: dict) -> str:
+    handle = config.get("full_handle")
+    if handle:
+        return handle
+    owner = config.get("owner")
+    repo = config.get("repo_name")
+    if not repo:
+        repo = config["project_name"].lower()
+    if not owner:
+        owner = "local"
+    return f"{owner}/{repo}"
+
+
+def derive_repo_name(config: dict) -> str:
+    repo_name = config.get("repo_name")
+    if repo_name:
+        return repo_name
+    return config["project_name"].lower()
+
+
+def derive_cache_service_slug(full_handle: str, config: dict) -> str:
+    slug = config.get("cache_service_slug")
+    if slug:
+        return slug
+    return full_handle.replace("/", "-")
+
+
+def copy_template(source: Path, destination: Path) -> None:
+    for entry in source.iterdir():
+        target = destination / entry.name
+        if entry.is_dir():
+            if target.exists() and target.is_dir():
+                copy_template(entry, target)
+                continue
+            if target.exists():
+                shutil.rmtree(target)
+            shutil.copytree(entry, target)
+        else:
+            shutil.copy2(entry, target)
+
+
+def replace_placeholders_in_file(path: Path, placeholders: dict[str, str]) -> None:
+    try:
+        text = path.read_text()
+    except UnicodeDecodeError:
+        return
+    updated = text
+    for placeholder, value in placeholders.items():
+        updated = updated.replace(placeholder, value)
+    if updated != text:
+        path.write_text(updated)
+
+
+def replace_placeholders_in_contents(destination: Path, placeholders: dict[str, str]) -> None:
+    for path in destination.rglob("*"):
+        if path.is_file():
+            replace_placeholders_in_file(path, placeholders)
+
+
+def replace_placeholders_in_name(name: str, placeholders: dict[str, str]) -> str:
+    updated = name
+    for placeholder, value in placeholders.items():
+        if placeholder in updated:
+            updated = updated.replace(placeholder, value)
+    return updated
+
+
+def rename_placeholder_entities(destination: Path, placeholders: dict[str, str]) -> None:
+    entries = sorted(destination.rglob("*"), key=lambda entry: len(entry.parts), reverse=True)
+    for entry in entries:
+        if not entry.exists():
+            continue
+        new_name = replace_placeholders_in_name(entry.name, placeholders)
+        if new_name != entry.name:
+            entry.rename(entry.with_name(new_name))
+
+
+def find_unresolved_placeholders(destination: Path) -> dict[Path, list[str]]:
+    unresolved: dict[Path, list[str]] = {}
+    for path in destination.rglob("*"):
+        matches_in_name = sorted(set(PLACEHOLDER_PATTERN.findall(path.name)))
+        if matches_in_name:
+            unresolved[path] = matches_in_name
+    for path in destination.rglob("*"):
+        if not path.is_file():
+            continue
+        try:
+            text = path.read_text()
+        except UnicodeDecodeError:
+            continue
+        matches = sorted(set(PLACEHOLDER_PATTERN.findall(text)))
+        if matches:
+            existing = unresolved.get(path, [])
+            unresolved[path] = sorted(set(existing + matches))
+    return unresolved
+
+
+def normalize_executables(destination: Path) -> None:
+    for path in destination.rglob("*"):
+        if not path.is_file():
+            continue
+        try:
+            first_bytes = path.read_bytes()[:2]
+        except OSError:
+            continue
+        if first_bytes.startswith(b"#!"):
+            current = path.stat().st_mode
+            path.chmod(current | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Materialize a bootstrap template directory.")
+    parser.add_argument("--config", required=True)
+    args = parser.parse_args()
+
+    config = load_config(Path(args.config))
+    validate_config(config)
+
+    template_source = Path(config["template_source_path"]).expanduser()
+    if not template_source.exists() or not template_source.is_dir():
+        fail(f"Template source path '{template_source}' does not exist or is not a directory.")
+
+    destination = Path(config["destination_path"]).expanduser()
+    strategy = config["destination_strategy"]
+
+    if strategy == "abort":
+        fail("Destination strategy is 'abort'; aborting before any work.")
+
+    if destination.exists():
+        if strategy == "create":
+            fail(f"Destination '{destination}' already exists and destination_strategy is create.")
+        if strategy == "replace":
+            shutil.rmtree(destination)
+            destination.mkdir(parents=True, exist_ok=True)
+        elif strategy == "reuse" and not destination.is_dir():
+            fail(f"Destination '{destination}' exists but is not a directory.")
+    else:
+        destination.mkdir(parents=True, exist_ok=True)
+
+    full_handle = derive_full_handle(config)
+    repo_name = derive_repo_name(config)
+    placeholders = {
+        "__PROJECT_NAME__": config["project_name"],
+        "__PROJECT_NAME_LOWER__": config["project_name"].lower(),
+        "__REPO_NAME__": repo_name,
+        "__BUNDLE_ID__": config["bundle_id"],
+        "__FULL_HANDLE__": full_handle,
+        "__IOS_SIMULATOR_DEVICE__": config["ios_simulator_device"],
+        "__APP_SCHEME__": config.get("app_scheme", config["project_name"]),
+        "__TEST_SCHEME__": config.get("test_scheme", f"{config['project_name']}Tests"),
+        "__CACHE_SERVICE_SLUG__": derive_cache_service_slug(full_handle, config),
+    }
+
+    copy_template(template_source, destination)
+    replace_placeholders_in_contents(destination, placeholders)
+    rename_placeholder_entities(destination, placeholders)
+    normalize_executables(destination)
+
+    unresolved = find_unresolved_placeholders(destination)
+    if unresolved:
+        details = ", ".join(f"{path} ({', '.join(placeholders)})" for path, placeholders in unresolved.items())
+        fail(f"Unresolved placeholders remain in: {details}")
+
+    print(
+        json.dumps(
+            {
+                "status": "ok",
+                "destination_path": str(destination),
+                "full_handle": full_handle,
+                "cache_service_slug": placeholders["__CACHE_SERVICE_SLUG__"],
+                "setup_tuist_cloud": config["setup_tuist_cloud"],
+                "setup_tuist_cache": config["setup_tuist_cache"],
+            }
+        )
+    )
+
+
+if __name__ == "__main__":
+    main()
