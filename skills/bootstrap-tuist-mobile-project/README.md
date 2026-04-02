@@ -1,6 +1,6 @@
 # Bootstrap Tuist Mobile Project
 
-`bootstrap-tuist-mobile-project` is the Task 1 shell for a future workflow that will orchestrate the interview, capability detection, and confirmation flow for creating a new Tuist-powered mobile project. It does not mutate templates yet; instead, it defines the JSON handoff contract and repo-root invocation shape that later tasks will implement through `bin/zach-mobile-init --config <path-to-json-config>`.
+`bootstrap-tuist-mobile-project` is the evolving shell for a future workflow that will orchestrate the interview, capability detection, and confirmation flow for creating a new Tuist-powered mobile project. The deterministic initializer now exists at `bin/zach-mobile-init`; the skill still defines the higher-level interview and orchestration contract around it.
 
 ## Responsibilities
 
@@ -9,8 +9,8 @@
 - confirm every external side effect before executing it (repo creation with the chosen visibility, Tuist Cloud project creation, cache setup, initial commit, push).
 - within `github-and-tuist-cloud`, ask separate confirmations for Tuist Cloud project creation and `tuist setup cache` instead of collapsing them into one toggle.
 - fail closed when setup conflicts appear: an existing target directory requires an explicit `reuse`, `replace`, or `abort` choice; a taken GitHub repo name requires asking the user whether to choose another name and, if they refuse, forcing an explicit switch-mode-or-abort choice; and an existing `full_handle` requires asking whether to bind to it or choose another handle.
-- in later tasks, run `gh repo create`, `tuist project create`, `tuist setup cache`, and Git actions only when the user has explicitly approved them.
-- treat `mise run warm-external-cache` as the default local post-init setup/verification step once the initializer and templates exist.
+- run `gh repo create`, `tuist project create`, `tuist setup cache`, and Git actions only when the user has explicitly approved them once the orchestration layer is implemented.
+- treat `mise run warm-external-cache` as the default local post-init setup/verification step.
 - hand off the filled template, `template_source_path`, destination path, names, handle, identifiers, cache slug, and final approved booleans to `bin/zach-mobile-init --config <path-to-json-config>`, which will consume a prepared local template source and mutate the chosen starter.
 
 ## Default Interview Order
@@ -40,8 +40,8 @@
 ## Architecture
 
 - Templates live in the planned public GitHub template repositories `github.com/Zach677/tuist-ios-starter` and `github.com/Zach677/tuist-ios-catalyst-starter`; the skill will later prepare a local copy of one of those templates as the CLI input source.
-- `scripts/bootstrap_mobile_project.py` is a Task 1 shell/stub that marks the future helper surface for capability status reporting, approval collection, and payload construction.
-- `references/flow.md` describes the intended decision tree, confirmations, and order of side effects for the later implementation work.
+- `scripts/bootstrap_mobile_project.py` is the current shell helper surface for capability status reporting, approval collection, and payload construction.
+- `references/flow.md` describes the intended decision tree, confirmations, and order of side effects that the remaining orchestration work must follow.
 
 ## References
 

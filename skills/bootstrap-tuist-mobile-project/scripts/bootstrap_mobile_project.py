@@ -26,6 +26,8 @@ class BootstrapPayload(TypedDict):
     cache_service_slug: NotRequired[str]
     visibility: NotRequired[Literal["private", "public"]]
     ios_simulator_device: str
+    app_scheme: NotRequired[str]
+    test_scheme: NotRequired[str]
     create_initial_commit: bool
     push_after_init: bool
     setup_tuist_cloud: bool
@@ -62,10 +64,6 @@ def build_payload(
     bundle_id: str,
     ios_simulator_device: str,
     approvals: ApprovalSet,
-    create_initial_commit: bool,
-    push_after_init: bool,
-    setup_tuist_cloud: bool,
-    setup_tuist_cache: bool,
     owner: str | None = None,
     repo_name: str | None = None,
     full_handle: str | None = None,
