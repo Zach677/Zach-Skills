@@ -1,0 +1,4 @@
+interface:
+  display_name: "Bootstrap Tuist Mobile Project"
+  short_description: "Define the Task 1 shell for a capability-driven Tuist mobile bootstrap flow."
+  default_prompt: "Use $bootstrap-tuist-mobile-project when a user wants to create a new pure iOS or iOS-plus-Catalyst project from a public template; the Task 1 shell will detect tooling, confirm side effects, and define the JSON handoff contract for a future repo-root invocation of bin/zach-mobile-init --config <path-to-json-config> against a prepared local template source."
