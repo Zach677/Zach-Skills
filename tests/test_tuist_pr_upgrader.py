@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import argparse
+import io
 import json
 import os
 import subprocess
@@ -169,6 +171,44 @@ verify_commands = ["mise run test-macos"]
         self.assertEqual(config.scan_roots, [(root / "repos").resolve()])
         self.assertEqual(config.repos["demo"].path, (root / "repos" / "demo").resolve())
 
+    def test_load_extend_config_rejects_non_mapping_repos_table(self) -> None:
+        extend = """
+# Config
+
+```toml
+scan_roots = ["/tmp/repos"]
+allow_push = false
+allow_pr = false
+repos = []
+```
+"""
+
+        with TemporaryDirectory() as tmp_dir:
+            path = Path(tmp_dir) / "EXTEND.md"
+            path.write_text(extend, encoding="utf-8")
+
+            with self.assertRaises(TypeError):
+                tuist_pr_upgrader.load_extend_config(path)
+
+    def test_load_extend_config_rejects_non_mapping_repo_entry(self) -> None:
+        extend = """
+# Config
+
+```toml
+scan_roots = ["/tmp/repos"]
+allow_push = false
+allow_pr = false
+repos = { demo = "oops" }
+```
+"""
+
+        with TemporaryDirectory() as tmp_dir:
+            path = Path(tmp_dir) / "EXTEND.md"
+            path.write_text(extend, encoding="utf-8")
+
+            with self.assertRaises(TypeError):
+                tuist_pr_upgrader.load_extend_config(path)
+
 
 class CandidateRepoTests(unittest.TestCase):
     def test_is_tuist_candidate_requires_project_tuist_and_mise_files(self) -> None:
@@ -282,6 +322,15 @@ class PlanningTests(unittest.TestCase):
 
         self.assertEqual(version, "4.171.2")
         mocked_run.assert_called_once()
+
+    def test_get_latest_tuist_version_raises_runtime_error_on_timeout(self) -> None:
+        with mock.patch.object(
+            tuist_pr_upgrader.subprocess,
+            "run",
+            side_effect=subprocess.TimeoutExpired(cmd=["mise", "latest", "tuist"], timeout=30),
+        ):
+            with self.assertRaises(RuntimeError):
+                tuist_pr_upgrader.get_latest_tuist_version()
 
     def test_build_repo_plan_marks_up_to_date_repo(self) -> None:
         with TemporaryDirectory() as tmp_dir:
@@ -612,6 +661,7 @@ class RunModeTests(unittest.TestCase):
 
         self.assertEqual(result.status, "updated")
         self.assertEqual(result.branch, "chore/tuist-4-171-2")
+        self.assertIn(["git", "switch", "-C", "chore/tuist-4-171-2"], commands)
         self.assertNotIn(["git", "push", "-u", "origin", "chore/tuist-4-171-2"], commands)
         self.assertFalse(any(cmd[:3] == ["gh", "pr", "create"] for cmd in commands if isinstance(cmd, list)))
 
@@ -687,7 +737,13 @@ class RunModeTests(unittest.TestCase):
 
         self.assertEqual(result.status, "verification-failed")
         self.assertFalse(any(cmd[:2] == ["git", "push"] for cmd in commands if isinstance(cmd, list)))
-        self.assertFalse(any("gh" in cmd for cmd in commands))
+        self.assertFalse(
+            any(
+                (isinstance(cmd, list) and cmd and cmd[0] == "gh")
+                or (isinstance(cmd, str) and cmd.split() and cmd.split()[0] == "gh")
+                for cmd in commands
+            )
+        )
 
     def test_run_repo_upgrade_honors_dry_run(self) -> None:
         with TemporaryDirectory() as tmp_dir:
@@ -779,6 +835,68 @@ class RunModeTests(unittest.TestCase):
         self.assertEqual(result.status, "updated")
         self.assertFalse(any(cmd[:2] == ["git", "push"] for cmd in commands if isinstance(cmd, list)))
         self.assertFalse(any(cmd[:3] == ["gh", "pr", "create"] for cmd in commands if isinstance(cmd, list)))
+
+
+class CommandWorkflowTests(unittest.TestCase):
+    def test_filtered_repo_items_applies_include_and_exclude(self) -> None:
+        config = tuist_pr_upgrader.ExtendConfig(
+            scan_roots=[Path("/tmp/repos")],
+            include_repos=["mitori", "subpanda"],
+            exclude_repos=["subpanda"],
+            allow_push=False,
+            allow_pr=False,
+            repos={
+                "mitori": tuist_pr_upgrader.RepoConfig("mitori", Path("/tmp/repos/mitori"), ["mise run test"]),
+                "kigen": tuist_pr_upgrader.RepoConfig("kigen", Path("/tmp/repos/kigen"), ["mise run test"]),
+                "subpanda": tuist_pr_upgrader.RepoConfig("subpanda", Path("/tmp/repos/subpanda"), ["mise run test"]),
+            },
+        )
+
+        items = list(tuist_pr_upgrader.filtered_repo_items(config))
+
+        self.assertEqual([name for name, _ in items], ["mitori"])
+
+    def test_command_run_continues_after_one_repo_raises(self) -> None:
+        config = tuist_pr_upgrader.ExtendConfig(
+            scan_roots=[Path("/tmp/repos")],
+            include_repos=[],
+            exclude_repos=[],
+            allow_push=False,
+            allow_pr=False,
+            repos={
+                "broken": tuist_pr_upgrader.RepoConfig("broken", Path("/tmp/repos/broken"), ["mise run test"]),
+                "good": tuist_pr_upgrader.RepoConfig("good", Path("/tmp/repos/good"), ["mise run test"]),
+            },
+        )
+        context = tuist_pr_upgrader.CliContext(extend_path=Path("/tmp/EXTEND.md"), config=config)
+        args = argparse.Namespace(extend="/tmp/EXTEND.md", dry_run=False)
+        output = io.StringIO()
+
+        with mock.patch.object(tuist_pr_upgrader, "load_cli_context", return_value=context):
+            with mock.patch.object(tuist_pr_upgrader, "get_latest_tuist_version", return_value="4.171.2"):
+                with mock.patch.object(
+                    tuist_pr_upgrader,
+                    "build_repo_plan",
+                    side_effect=[
+                        tuist_pr_upgrader.RepoPlan("broken", Path("/tmp/repos/broken"), "4.162.1", "4.171.2", "needs-upgrade", None, ["mise run test"], []),
+                        tuist_pr_upgrader.RepoPlan("good", Path("/tmp/repos/good"), "4.162.1", "4.171.2", "needs-upgrade", None, ["mise run test"], []),
+                    ],
+                ):
+                    with mock.patch.object(
+                        tuist_pr_upgrader,
+                        "run_repo_upgrade",
+                        side_effect=[
+                            subprocess.CalledProcessError(1, ["git", "fetch", "origin"]),
+                            tuist_pr_upgrader.RepoRunResult("good", "updated", "chore/tuist-4-171-2", None, "ok"),
+                        ],
+                    ):
+                        with mock.patch("sys.stdout", output):
+                            exit_code = tuist_pr_upgrader.command_run(args)
+
+        rendered = output.getvalue()
+        self.assertEqual(exit_code, 0)
+        self.assertIn("`broken`: `skipped-config-error`", rendered)
+        self.assertIn("`good`: `updated`", rendered)
 
 
 if __name__ == "__main__":

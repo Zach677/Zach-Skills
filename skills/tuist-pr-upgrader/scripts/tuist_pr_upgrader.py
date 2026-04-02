@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+from collections.abc import Mapping
 from dataclasses import dataclass
 import json
 import os
@@ -95,7 +96,8 @@ def resolve_config_path(raw_path: object, base_dir: Path) -> Path:
 def configured_extend_file_paths() -> tuple[Path, Path, Path]:
     project_root = Path.cwd()
     home = Path.home()
-    xdg_root = Path(os.environ.get("XDG_CONFIG_HOME", home / ".config"))
+    raw_xdg = os.environ.get("XDG_CONFIG_HOME", "")
+    xdg_root = Path(raw_xdg.strip()) if raw_xdg.strip() else home / ".config"
     return (
         project_root / ".zach-skills" / EXTEND_SKILL_NAME / "EXTEND.md",
         xdg_root / "zach-skills" / EXTEND_SKILL_NAME / "EXTEND.md",
@@ -114,8 +116,12 @@ def load_extend_config(path: Path) -> ExtendConfig:
     payload = tomllib.loads(extract_toml_block(path.read_text(encoding="utf-8")))
     base_dir = path.parent
     repos_payload = payload.get("repos", {})
+    if not isinstance(repos_payload, Mapping):
+        raise TypeError("repos must be a table of repo entries")
     repos: dict[str, RepoConfig] = {}
     for name, repo_payload in repos_payload.items():
+        if not isinstance(repo_payload, Mapping):
+            raise TypeError(f"repos.{name} must be a table")
         repos[name] = RepoConfig(
             name=name,
             path=resolve_config_path(repo_payload["path"], base_dir),
@@ -167,12 +173,21 @@ def discover_candidate_repos(scan_roots: list[Path]) -> list[Path]:
 
 
 def get_latest_tuist_version() -> str:
-    completed = subprocess.run(
-        ["mise", "latest", "tuist"],
-        check=True,
-        capture_output=True,
-        text=True,
-    )
+    try:
+        completed = subprocess.run(
+            ["mise", "latest", "tuist"],
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+    except FileNotFoundError as exc:
+        raise RuntimeError("`mise` is not installed or not on PATH") from exc
+    except subprocess.TimeoutExpired as exc:
+        raise RuntimeError("`mise latest tuist` timed out") from exc
+    except subprocess.CalledProcessError as exc:
+        message = exc.stderr.strip() if exc.stderr else "`mise latest tuist` failed"
+        raise RuntimeError(message) from exc
     return completed.stdout.strip()
 
 
@@ -314,6 +329,19 @@ def render_run_report(results: list[RepoRunResult], *, target_version: str) -> s
     return "\n".join(lines)
 
 
+def filtered_repo_items(config: ExtendConfig) -> list[tuple[str, RepoConfig]]:
+    included = set(config.include_repos)
+    excluded = set(config.exclude_repos)
+    items: list[tuple[str, RepoConfig]] = []
+    for name, repo_config in sorted(config.repos.items()):
+        if included and name not in included:
+            continue
+        if name in excluded:
+            continue
+        items.append((name, repo_config))
+    return items
+
+
 def run_command(
     args: list[str] | str,
     *,
@@ -360,7 +388,10 @@ def existing_pr_for_version(repo: Path, version: str, base_branch: str) -> str |
         check=False,
     )
     if completed.returncode != 0:
-        raise RuntimeError("failed to query existing pull requests")
+        message = f"failed to query existing pull requests (exit {completed.returncode})"
+        if completed.stderr:
+            message += f": {completed.stderr.strip()}"
+        raise RuntimeError(message)
     if not completed.stdout.strip():
         return None
     for item in json.loads(completed.stdout):
@@ -453,7 +484,7 @@ def run_repo_upgrade(
 
     run_command(["git", "switch", base_branch], cwd=repo_config.path)
     run_command(["git", "pull", "--ff-only", "origin", base_branch], cwd=repo_config.path)
-    run_command(["git", "switch", "-c", branch_name], cwd=repo_config.path)
+    run_command(["git", "switch", "-C", branch_name], cwd=repo_config.path)
 
     mise_toml_path = repo_config.path / "mise.toml"
     updated_mise_toml = replace_pinned_tuist_version(
@@ -464,13 +495,13 @@ def run_repo_upgrade(
 
     try:
         run_verification_commands(repo_config.path, repo_config.verify_commands)
-    except subprocess.CalledProcessError:
+    except subprocess.CalledProcessError as exc:
         return RepoRunResult(
             name=repo_config.name,
             status="verification-failed",
             branch=branch_name,
             pr_url=None,
-            summary="verification commands failed",
+            summary=f"verification failed: {exc.cmd} returned {exc.returncode}",
         )
 
     run_command(["git", "add", "mise.toml"], cwd=repo_config.path)
@@ -552,7 +583,7 @@ def command_scan(args: argparse.Namespace) -> int:
         lines.append(f"- `{candidate}`")
     lines.append("")
     lines.append("configured repos:")
-    for name, repo_config in sorted(context.config.repos.items()):
+    for name, repo_config in filtered_repo_items(context.config):
         lines.append(f"- `{name}`: `{repo_config.path}`")
     print("\n".join(lines))
     return 0
@@ -564,11 +595,15 @@ def command_plan(args: argparse.Namespace) -> int:
         print("# Tuist Upgrade Plan\n\nNo EXTEND.md found. Report-only mode.")
         return 0
 
-    target_version = get_latest_tuist_version()
+    try:
+        target_version = get_latest_tuist_version()
+    except RuntimeError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
     scanned_repos = discover_candidate_repos(context.config.scan_roots)
     plans = [
         build_repo_plan(repo_config, target_version)
-        for _, repo_config in sorted(context.config.repos.items())
+        for _, repo_config in filtered_repo_items(context.config)
     ]
 
     lines = ["# Tuist Upgrade Plan", "", f"target version: `{target_version}`", ""]
@@ -587,21 +622,36 @@ def command_run(args: argparse.Namespace) -> int:
         print("# Tuist Upgrade Run\n\nNo EXTEND.md found. Report-only mode.")
         return 0
 
-    target_version = get_latest_tuist_version()
+    try:
+        target_version = get_latest_tuist_version()
+    except RuntimeError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
     results: list[RepoRunResult] = []
 
-    for _, repo_config in sorted(context.config.repos.items()):
+    for _, repo_config in filtered_repo_items(context.config):
         plan = build_repo_plan(repo_config, target_version)
         if plan.status == "needs-upgrade":
-            results.append(
-                run_repo_upgrade(
-                    repo_config,
-                    target_version=target_version,
-                    allow_push=context.config.allow_push,
-                    allow_pr=context.config.allow_pr,
-                    dry_run=args.dry_run,
+            try:
+                results.append(
+                    run_repo_upgrade(
+                        repo_config,
+                        target_version=target_version,
+                        allow_push=context.config.allow_push,
+                        allow_pr=context.config.allow_pr,
+                        dry_run=args.dry_run,
+                    )
                 )
-            )
+            except (subprocess.CalledProcessError, RuntimeError) as exc:
+                results.append(
+                    RepoRunResult(
+                        name=repo_config.name,
+                        status="skipped-config-error",
+                        branch=None,
+                        pr_url=None,
+                        summary=str(exc),
+                    )
+                )
             continue
 
         results.append(
