@@ -4,13 +4,13 @@
 
 ## Responsibilities
 
-- summarize CLI tooling (`git`, `gh`, `gh auth status`, `mise`, `tuist`, `tuist auth whoami`) and surface missing capabilities.
+- summarize CLI tooling (`git`, `gh`, `gh auth status`, `mise`, `mise exec -- tuist version`, `mise exec -- tuist auth whoami`) and surface missing capabilities.
 - ask the user for the mode (`local-only`, `github-backed`, `github-and-tuist-cloud`) and template shape, then follow the spec interview order instead of freelancing question order.
 - confirm every external side effect before executing it (repo creation with the chosen visibility, Tuist Cloud project creation, cache setup, initial commit, push).
 - within `github-and-tuist-cloud`, ask separate confirmations for Tuist Cloud project creation and `tuist setup cache` instead of collapsing them into one toggle.
 - fail closed when setup conflicts appear: an existing target directory requires an explicit `reuse`, `replace`, or `abort` choice; a taken GitHub repo name requires asking the user whether to choose another name and, if they refuse, forcing an explicit switch-mode-or-abort choice; and an existing `full_handle` requires asking whether to bind to it or choose another handle.
-- run `gh repo create`, `tuist project create`, `tuist setup cache`, and Git actions only when the user has explicitly approved them once the orchestration layer is implemented.
-- treat `mise run warm-external-cache` as the default local post-init setup/verification step.
+- run `gh repo create`, `mise exec -- tuist project create`, `mise exec -- tuist setup cache`, and Git actions only when the user has explicitly approved them once the orchestration layer is implemented.
+- treat `mise run warm-external-cache` as the default local post-init setup/verification step, executed from the generated project `destination_path`.
 - hand off the filled template, `template_source_path`, destination path, names, handle, identifiers, cache slug, and final approved booleans to `bin/zach-mobile-init --config <path-to-json-config>`, which will consume a prepared local template source and mutate the chosen starter.
 
 ## Default Interview Order
