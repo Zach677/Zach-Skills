@@ -126,7 +126,7 @@ def create_github_repo(owner: str, repo_name: str, visibility: str) -> None:
 
 def tuist_project_create(destination: Path, full_handle: str) -> None:
     _run_command(
-        ["mise", "exec", "--", "tuist", "project", "create", full_handle],
+        ["mise", "exec", "--", "tuist", "project", "create", full_handle, "--build-system", "xcode"],
         cwd=destination,
     )
 
@@ -142,6 +142,12 @@ def warm_external_cache(destination: Path) -> None:
     _run_command(
         ["mise", "run", "warm-external-cache"],
         cwd=destination,
+    )
+
+
+def mise_trust(mise_toml_path: Path) -> None:
+    _run_command(
+        ["mise", "trust", str(mise_toml_path)],
     )
 
 
@@ -177,6 +183,9 @@ class _DefaultExecutor:
 
     def warm_external_cache(self, destination: Path) -> None:
         warm_external_cache(destination)
+
+    def mise_trust(self, mise_toml_path: Path) -> None:
+        mise_trust(mise_toml_path)
 
     def git_init(self, destination: Path) -> None:
         git_init(destination)
@@ -235,6 +244,10 @@ def execute_side_effects(
     target = Path(destination_path).expanduser().resolve()
     executor = executor or _DefaultExecutor()
     approvals = _normalize_approvals_for_mode(payload["mode"], approvals)
+    mise_toml_path = target / "mise.toml"
+
+    if mise_toml_path.exists():
+        executor.mise_trust(mise_toml_path)
 
     if payload["mode"] != "local-only":
         if _approval_is_confirmed(approvals, "create_github_repo", "GitHub repo creation"):

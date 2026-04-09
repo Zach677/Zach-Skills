@@ -79,6 +79,9 @@ class ZachMobileInitTests(unittest.TestCase):
         workspace = path / "__PROJECT_NAME__-workspace.xcworkspace"
         workspace.mkdir()
         (workspace / "contents.xcworkspacedata").write_text("workspace __FULL_HANDLE__")
+        git_dir = path / ".git"
+        git_dir.mkdir()
+        (git_dir / "HEAD").write_text("ref: refs/heads/main")
 
     def test_replaces_placeholders_and_normalizes_scripts(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -105,6 +108,7 @@ class ZachMobileInitTests(unittest.TestCase):
             script = destination / "scripts" / "run-ios-sim.sh"
             self.assertTrue(script.exists())
             self.assertTrue(os.access(script, os.X_OK))
+            self.assertFalse((destination / ".git").exists())
 
     def test_derives_full_handle_when_missing(self):
         with tempfile.TemporaryDirectory() as tmpdir:

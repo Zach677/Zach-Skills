@@ -95,6 +95,8 @@ def derive_cache_service_slug(full_handle: str, config: dict) -> str:
 
 def copy_template(source: Path, destination: Path) -> None:
     for entry in source.iterdir():
+        if entry.name == ".git":
+            continue
         target = destination / entry.name
         if entry.is_dir():
             if target.exists() and target.is_dir():

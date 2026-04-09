@@ -232,6 +232,9 @@ class FakeExecutor:
     def warm_external_cache(self, destination: Path) -> None:
         self.calls.append(("warm_external_cache", (destination,)))
 
+    def mise_trust(self, mise_toml_path: Path) -> None:
+        self.calls.append(("mise_trust", (mise_toml_path,)))
+
     def git_init(self, destination: Path) -> None:
         self.calls.append(("git_init", (destination,)))
 
@@ -252,11 +255,14 @@ class SideEffectSequenceTests(unittest.TestCase):
     def _run_sequence(self, approvals: dict[str, str], **payload_kwargs) -> FakeExecutor:
         approvals = {**approvals}
         payload = bpm.build_payload(**payload_kwargs, approvals=approvals)
+        destination = Path(payload["destination_path"])
+        destination.mkdir(parents=True, exist_ok=True)
+        (destination / "mise.toml").write_text("[tools]\n", encoding="utf-8")
         executor = FakeExecutor()
         bpm.execute_side_effects(
             payload=payload,
             approvals=approvals,
-            destination_path=Path(payload["destination_path"]),
+            destination_path=destination,
             executor=executor,
         )
         return executor
@@ -287,6 +293,7 @@ class SideEffectSequenceTests(unittest.TestCase):
 
         expected_path = Path("/tmp/project").resolve()
         expected = [
+            ("mise_trust", (expected_path / "mise.toml",)),
             ("warm_external_cache", (expected_path,)),
             ("git_init", (expected_path,)),
             ("git_add", (expected_path,)),
@@ -324,6 +331,7 @@ class SideEffectSequenceTests(unittest.TestCase):
         expected_names = [call[0] for call in executor.calls]
         self.assertIn("create_github_repo", expected_names)
         self.assertIn("git_remote_add", expected_names)
+        self.assertIn("mise_trust", expected_names)
         self.assertNotIn("tuist_project_create", expected_names)
         self.assertNotIn("tuist_setup_cache", expected_names)
         self.assertIn("git_push", expected_names)
@@ -356,8 +364,9 @@ class SideEffectSequenceTests(unittest.TestCase):
         )
 
         names = [call[0] for call in executor.calls]
-        self.assertEqual(names[0], "create_github_repo")
+        self.assertEqual(names[0], "mise_trust")
         self.assertIn("git_remote_add", names)
+        self.assertIn("mise_trust", names)
         self.assertIn("tuist_project_create", names)
         self.assertIn("tuist_setup_cache", names)
         self.assertTrue("git_push" not in names)
