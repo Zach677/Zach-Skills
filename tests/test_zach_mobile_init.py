@@ -64,6 +64,9 @@ class ZachMobileInitTests(unittest.TestCase):
         (path / "details.md").write_text(
             "Device __IOS_SIMULATOR_DEVICE__ app __APP_SCHEME__ tests __TEST_SCHEME__ cache __CACHE_SERVICE_SLUG__"
         )
+        (path / "Tuist.swift").write_text(
+            "full=__TUIST_FULL_HANDLE_ARGUMENT__ upload=__TUIST_CACHE_UPLOAD__ caching=__TUIST_ENABLE_CACHING__"
+        )
         data_assets = path / "__PROJECT_NAME__-assets"
         data_assets.mkdir()
         (data_assets / "info.md").write_text(
@@ -101,6 +104,10 @@ class ZachMobileInitTests(unittest.TestCase):
             self.assertTrue(assets_dir.is_dir())
             info_text = (assets_dir / "info.md").read_text()
             self.assertIn("zach-subpanda", info_text)
+            tuist_text = (destination / "Tuist.swift").read_text()
+            self.assertIn('full=fullHandle: "zach/subpanda",', tuist_text)
+            self.assertIn("upload=true", tuist_text)
+            self.assertIn("caching=false", tuist_text)
             workspace = destination / "SubPanda-workspace.xcworkspace"
             self.assertTrue(workspace.is_dir())
             scheme = workspace / "contents.xcworkspacedata"
@@ -110,14 +117,22 @@ class ZachMobileInitTests(unittest.TestCase):
             self.assertTrue(os.access(script, os.X_OK))
             self.assertFalse((destination / ".git").exists())
 
-    def test_derives_full_handle_when_missing(self):
+    def test_derives_full_handle_when_missing_for_cloud_enabled_project(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             template_dir = Path(tmpdir) / "template"
             destination = Path(tmpdir) / "out"
             self.create_template(template_dir)
-            config = self.build_config(template_dir, destination, full_handle=None)
+            config = self.build_config(
+                template_dir,
+                destination,
+                mode="github-and-tuist-cloud",
+                setup_tuist_cloud=True,
+                setup_tuist_cache=True,
+                full_handle=None,
+            )
             config.pop("full_handle", None)
             process = self.run_cli(config)
+            self.assertIn('"full_handle": "zach/subpanda"', process.stdout)
             self.assertIn("zach/subpanda", (destination / "SubPanda-assets" / "info.md").read_text())
 
     def test_local_only_does_not_require_owner_repo_or_visibility(self):
@@ -131,7 +146,13 @@ class ZachMobileInitTests(unittest.TestCase):
             config.pop("visibility", None)
             config.pop("full_handle", None)
             process = self.run_cli(config)
-            self.assertIn('"full_handle": "local/subpanda"', process.stdout)
+            self.assertNotIn('"full_handle"', process.stdout)
+            self.assertNotIn('"cache_service_slug"', process.stdout)
+            tuist_text = (destination / "Tuist.swift").read_text()
+            self.assertIn("full=", tuist_text)
+            self.assertNotIn("fullHandle:", tuist_text)
+            self.assertIn("upload=false", tuist_text)
+            self.assertIn("caching=false", tuist_text)
 
     def test_rejects_unknown_template(self):
         with tempfile.TemporaryDirectory() as tmpdir:

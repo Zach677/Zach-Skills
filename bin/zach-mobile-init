@@ -66,16 +66,18 @@ def validate_config(config: dict) -> None:
             fail("visibility must be one of: private, public")
 
 
-def derive_full_handle(config: dict) -> str:
+def derive_full_handle(config: dict) -> str | None:
     handle = config.get("full_handle")
     if handle:
         return handle
+    if not (config.get("setup_tuist_cloud") or config.get("setup_tuist_cache")):
+        return None
     owner = config.get("owner")
     repo = config.get("repo_name")
     if not repo:
         repo = config["project_name"].lower()
     if not owner:
-        owner = "local"
+        return None
     return f"{owner}/{repo}"
 
 
@@ -86,7 +88,9 @@ def derive_repo_name(config: dict) -> str:
     return config["project_name"].lower()
 
 
-def derive_cache_service_slug(full_handle: str, config: dict) -> str:
+def derive_cache_service_slug(full_handle: str | None, config: dict) -> str | None:
+    if not full_handle:
+        return None
     slug = config.get("cache_service_slug")
     if slug:
         return slug
@@ -209,16 +213,22 @@ def main() -> None:
 
     full_handle = derive_full_handle(config)
     repo_name = derive_repo_name(config)
+    cache_service_slug = derive_cache_service_slug(full_handle, config)
+    full_handle_argument = f'fullHandle: "{full_handle}",' if full_handle else ""
+    tuist_cloud_enabled = full_handle is not None
     placeholders = {
         "__PROJECT_NAME__": config["project_name"],
         "__PROJECT_NAME_LOWER__": config["project_name"].lower(),
         "__REPO_NAME__": repo_name,
         "__BUNDLE_ID__": config["bundle_id"],
-        "__FULL_HANDLE__": full_handle,
+        "__FULL_HANDLE__": full_handle or "",
         "__IOS_SIMULATOR_DEVICE__": config["ios_simulator_device"],
         "__APP_SCHEME__": config.get("app_scheme", config["project_name"]),
         "__TEST_SCHEME__": config.get("test_scheme", f"{config['project_name']}Tests"),
-        "__CACHE_SERVICE_SLUG__": derive_cache_service_slug(full_handle, config),
+        "__CACHE_SERVICE_SLUG__": cache_service_slug or "",
+        "__TUIST_FULL_HANDLE_ARGUMENT__": full_handle_argument,
+        "__TUIST_CACHE_UPLOAD__": "true" if tuist_cloud_enabled else "false",
+        "__TUIST_ENABLE_CACHING__": "true" if config["setup_tuist_cache"] else "false",
     }
 
     copy_template(template_source, destination)
@@ -231,18 +241,18 @@ def main() -> None:
         details = ", ".join(f"{path} ({', '.join(placeholders)})" for path, placeholders in unresolved.items())
         fail(f"Unresolved placeholders remain in: {details}")
 
-    print(
-        json.dumps(
-            {
-                "status": "ok",
-                "destination_path": str(destination),
-                "full_handle": full_handle,
-                "cache_service_slug": placeholders["__CACHE_SERVICE_SLUG__"],
-                "setup_tuist_cloud": config["setup_tuist_cloud"],
-                "setup_tuist_cache": config["setup_tuist_cache"],
-            }
-        )
-    )
+    result = {
+        "status": "ok",
+        "destination_path": str(destination),
+        "setup_tuist_cloud": config["setup_tuist_cloud"],
+        "setup_tuist_cache": config["setup_tuist_cache"],
+    }
+    if full_handle:
+        result["full_handle"] = full_handle
+    if cache_service_slug:
+        result["cache_service_slug"] = cache_service_slug
+
+    print(json.dumps(result))
 
 
 if __name__ == "__main__":

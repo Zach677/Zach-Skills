@@ -195,6 +195,35 @@ class PayloadAndApprovalTests(unittest.TestCase):
 
         self.assertFalse(payload["create_initial_commit"])
         self.assertFalse(payload["push_after_init"])
+        self.assertNotIn("full_handle", payload)
+        self.assertNotIn("cache_service_slug", payload)
+
+    def test_build_payload_only_derives_full_handle_for_cloud_or_cache(self) -> None:
+        approvals = {
+            "create_github_repo": "confirmed",
+            "create_tuist_cloud_project": "declined",
+            "setup_tuist_cache": "declined",
+            "create_initial_commit": "declined",
+            "push_after_init": "declined",
+        }
+
+        payload = bpm.build_payload(
+            mode="github-backed",
+            template="ios",
+            template_source_path="/tmp/template",
+            destination_path="/tmp/out",
+            destination_strategy="create",
+            project_name="Starter",
+            bundle_id="org.example.starter",
+            ios_simulator_device="iPhone 16",
+            approvals=approvals,
+            owner="zach",
+            repo_name="starter",
+            visibility="private",
+        )
+
+        self.assertNotIn("full_handle", payload)
+        self.assertNotIn("cache_service_slug", payload)
 
     def test_build_payload_rejects_unresolved_approvals(self) -> None:
         approvals = bpm.collect_approvals()

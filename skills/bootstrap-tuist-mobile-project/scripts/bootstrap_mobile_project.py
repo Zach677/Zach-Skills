@@ -318,7 +318,12 @@ def build_payload(
     if unresolved:
         raise ValueError(f"Approvals are unresolved: {', '.join(unresolved)}")
 
-    if full_handle is None and owner and repo_name:
+    should_configure_tuist_cloud = (
+        approvals["create_tuist_cloud_project"] == "confirmed"
+        or approvals["setup_tuist_cache"] == "confirmed"
+    )
+
+    if full_handle is None and should_configure_tuist_cloud and owner and repo_name:
         full_handle = f"{owner}/{repo_name}"
 
     if cache_service_slug is None and full_handle:
