@@ -9,7 +9,7 @@ Each skill owns its own directory under `skills/`, along with its own:
 - `references/` long-form docs
 - `scripts/` local helpers
 - `agents/` optional agent metadata
-- `EXTEND.example.md` for non-secret user preferences when needed
+- `EXTEND.example.md` as the checked-in template for non-secret user preferences when needed
 
 ## Layout
 
@@ -18,8 +18,9 @@ Each skill owns its own directory under `skills/`, along with its own:
 ├── README.md
 ├── LICENSE
 ├── skills/
+│   ├── wechat-hot-writer/
 │   ├── tuist-pr-upgrader/
-│   └── wechat-hot-writer/
+│   └── create-tuist-mobile-project/
 └── tests/
 ```
 
@@ -29,12 +30,13 @@ Each skill owns its own directory under `skills/`, along with its own:
 |---|---|---|
 | `wechat-hot-writer` | WeChat topic discovery, article packaging, visual prep, draft staging, and history sync | [skills/wechat-hot-writer/README.md](skills/wechat-hot-writer/README.md) |
 | `tuist-pr-upgrader` | Scan, plan, and run guarded Tuist upgrades with one PR per repo | [skills/tuist-pr-upgrader/README.md](skills/tuist-pr-upgrader/README.md) |
+| `create-tuist-mobile-project` | Defines the Task 1 shell for creating `local-only`, `github-backed`, or `github-and-tuist-cloud` mobile projects from public templates. | [skills/create-tuist-mobile-project/README.md](skills/create-tuist-mobile-project/README.md) |
 
 ## Repo Conventions
 
 - Put new skills under `skills/<skill-name>/`.
 - Keep root docs repo-level only. Do not turn the root `README.md` into a single skill manual again.
-- Put non-secret, user-editable preferences in `EXTEND.md`.
+- Put non-secret, user-editable preferences in `EXTEND.md`, and keep `EXTEND.example.md` as the checked-in starter template.
 - Put secrets in `.env`.
 - Keep runtime output local to the skill directory and out of git.
 - Add or update tests in `tests/` when a skill's behavior changes.
