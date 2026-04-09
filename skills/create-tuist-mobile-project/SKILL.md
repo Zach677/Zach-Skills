@@ -1,11 +1,11 @@
 ---
-name: bootstrap-tuist-mobile-project
+name: create-tuist-mobile-project
 description: Use when creating a new Tuist iOS or iOS plus Catalyst project from a public template with interactive setup.
 ---
 
-# Bootstrap Tuist Mobile Project
+# Create Tuist Mobile Project
 
-This skill is the evolving orchestration layer for the bootstrap flow above `bin/zach-mobile-init`. The helper module now implements capability detection, blocker reporting, approval collection, payload assembly, and side-effect sequencing; later tasks will wire the interactive interview onto those helpers instead of re-implementing them.
+This skill is the evolving orchestration layer for the project-creation flow above `bin/zach-mobile-init`. The helper module now implements capability detection, blocker reporting, approval collection, payload assembly, and side-effect sequencing; later tasks will wire the interactive interview onto those helpers instead of re-implementing them.
 
 ## Trigger Cases
 
@@ -14,7 +14,7 @@ This skill is the evolving orchestration layer for the bootstrap flow above `bin
 
 ## Workflow
 
-1. Detect the local capabilities: `git`, `gh`, `gh auth status`, `mise`, `mise exec -- tuist version`, and `mise exec -- tuist auth whoami`. The helper in `scripts/bootstrap_mobile_project.py` now exposes `detect_capabilities(repo_root=...)` plus `describe_mode_blockers()` so the skill presents which modes are blocked (missing or unauthenticated) without silently downgrading any choice.
+1. Detect the local capabilities: `git`, `gh`, `gh auth status`, `mise`, `mise exec -- tuist version`, and `mise exec -- tuist auth whoami`. The helper in `scripts/create_mobile_project.py` now exposes `detect_capabilities(repo_root=...)` plus `describe_mode_blockers()` so the skill presents which modes are blocked (missing or unauthenticated) without silently downgrading any choice.
 2. Ask for the creation mode and template shape (`local-only`, `github-backed`, `github-and-tuist-cloud`, then choose pure iOS or iOS + Catalyst). Keep all three modes explicit choices, and clarify blocked modes before proceeding instead of filtering them out.
 3. Collect project metadata in the interview order required by the spec: project name; destination path; GitHub owner only when the selected mode includes GitHub; repo name, where any default derived from the project name must still be explicitly confirmed by the user; repo visibility only when the selected mode includes GitHub; bundle identifier; default iOS simulator device; then, when the selected mode is `github-and-tuist-cloud` and the capability state supports it, ask separately whether to create the Tuist Cloud project and whether to run `tuist setup cache`; finally ask about initial commit and push choices. The JSON handoff uses `full_handle`, which is derived from the confirmed owner/repo by default and should only surface as an optional override when needed.
 4. Fail closed on setup conflicts before execution: if the target directory already exists, ask the user to choose `reuse`, `replace`, or `abort`; if the requested GitHub repo name is already taken, ask whether they want to choose another repo name and, if not, force an explicit follow-up choice to switch modes or abort; if the requested `full_handle` already exists, ask whether they want to bind to the existing handle or choose another handle.
@@ -54,7 +54,7 @@ Once the interview is complete, this skill is expected to build one in-memory pa
 ## Guardrail References
 
 - See [references/flow.md](references/flow.md) for the detailed flow diagram and decision points.
-- `scripts/bootstrap_mobile_project.py` is the current helper surface for capability checks, blocker reporting, approvals, and payload assembly.
+- `scripts/create_mobile_project.py` is the current helper surface for capability checks, blocker reporting, approvals, and payload assembly.
 
 ## Skill Helpers
 
@@ -70,4 +70,4 @@ The skill continues to orchestrate the interview; after every confirmation is ga
 ## Files To Load On Demand
 
 - [references/flow.md](references/flow.md)
-- [scripts/bootstrap_mobile_project.py](scripts/bootstrap_mobile_project.py)
+- [scripts/create_mobile_project.py](scripts/create_mobile_project.py)

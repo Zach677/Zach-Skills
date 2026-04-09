@@ -20,7 +20,7 @@ Each skill owns its own directory under `skills/`, along with its own:
 ├── skills/
 │   ├── wechat-hot-writer/
 │   ├── tuist-pr-upgrader/
-│   └── bootstrap-tuist-mobile-project/
+│   └── create-tuist-mobile-project/
 └── tests/
 ```
 
@@ -30,7 +30,7 @@ Each skill owns its own directory under `skills/`, along with its own:
 |---|---|---|
 | `wechat-hot-writer` | WeChat topic discovery, article packaging, visual prep, draft staging, and history sync | [skills/wechat-hot-writer/README.md](skills/wechat-hot-writer/README.md) |
 | `tuist-pr-upgrader` | Scan, plan, and run guarded Tuist upgrades with one PR per repo | [skills/tuist-pr-upgrader/README.md](skills/tuist-pr-upgrader/README.md) |
-| `bootstrap-tuist-mobile-project` | Defines the Task 1 shell for `local-only`, `github-backed`, or `github-and-tuist-cloud` mobile project bootstrapping from public templates. | [skills/bootstrap-tuist-mobile-project/README.md](skills/bootstrap-tuist-mobile-project/README.md) |
+| `create-tuist-mobile-project` | Defines the Task 1 shell for creating `local-only`, `github-backed`, or `github-and-tuist-cloud` mobile projects from public templates. | [skills/create-tuist-mobile-project/README.md](skills/create-tuist-mobile-project/README.md) |
 
 ## Repo Conventions
 

@@ -1,4 +1,4 @@
-# Bootstrap Tuist Mobile Project Flow
+# Create Tuist Mobile Project Flow
 
 1. **Capability detection** – Check `git`, `gh`, `gh auth status`, `mise`, `mise exec -- tuist version`, and `mise exec -- tuist auth whoami`. Each capability is either available, installed but not authenticated, or missing. The summary drives the next section, but it must not hide any of the supported modes.
 2. **Mode selection** – Ask the user to choose between `local-only`, `github-backed`, and `github-and-tuist-cloud`. If a capability is missing, surface the block and ask whether to postpone the mode or fix the tooling. The skill never downgrades silently and never filters out blocked modes.
@@ -16,4 +16,4 @@
 14. **Commit** – If the user confirmed initial VCS setup, the orchestration layer should run `git add` and `git commit` only after the warm/generate flow completes.
 15. **Push and final output** – Push only if the user explicitly confirmed push. Then present the resulting project path, repo URL when applicable, and the ready-to-use commands for run/build/test/share recorded in the template flows.
 
-`scripts/bootstrap_mobile_project.py` is the current helper surface for capability detection, blocker reporting, strongly typed approvals, approval gating, and in-memory payload assembly. The CLI already exists; later tasks will add the final interview wiring plus payload serialization around it.
+`scripts/create_mobile_project.py` is the current helper surface for capability detection, blocker reporting, strongly typed approvals, approval gating, and in-memory payload assembly. The CLI already exists; later tasks will add the final interview wiring plus payload serialization around it.

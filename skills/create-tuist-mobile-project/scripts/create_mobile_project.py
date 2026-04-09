@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Shared orchestration helpers for bootstrap-tuist-mobile-project."""
+"""Shared orchestration helpers for create-tuist-mobile-project."""
 
 from dataclasses import dataclass
 from pathlib import Path

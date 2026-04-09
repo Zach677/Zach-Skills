@@ -1,10 +1,10 @@
-# Bootstrap Tuist Mobile Project Implementation Plan
+# Create Tuist Mobile Project Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build a reusable `bootstrap-tuist-mobile-project` skill in `Zach-Skills` that interviews the user, creates a new local or GitHub-backed mobile project from a public Tuist template, initializes project-specific names and IDs through a CLI, and optionally wires Tuist Cloud plus Xcode cache.
+**Goal:** Build a reusable `create-tuist-mobile-project` skill in `Zach-Skills` that interviews the user, creates a new local or GitHub-backed mobile project from a public Tuist template, initializes project-specific names and IDs through a CLI, and optionally wires Tuist Cloud plus Xcode cache.
 
-**Architecture:** The system is split into three layers. Public template repos hold the source skeletons and placeholders. `bin/zach-mobile-init` is a deterministic initializer that materializes one chosen template with concrete project values. The `bootstrap-tuist-mobile-project` skill is a thin orchestrator that detects capabilities, asks questions, requires confirmation before side effects, and invokes GitHub, Tuist, and the initializer in the right order.
+**Architecture:** The system is split into three layers. Public template repos hold the source skeletons and placeholders. `bin/zach-mobile-init` is a deterministic initializer that materializes one chosen template with concrete project values. The `create-tuist-mobile-project` skill is a thin orchestrator that detects capabilities, asks questions, requires confirmation before side effects, and invokes GitHub, Tuist, and the initializer in the right order.
 
 **Tech Stack:** Python 3 stdlib (`argparse`, `dataclasses`, `json`, `pathlib`, `re`, `shutil`, `subprocess`, `tempfile`, `textwrap`, `unittest`), Git, GitHub CLI, Tuist CLI, `mise`
 
@@ -13,11 +13,11 @@
 ### Task 1: Scaffold The Bootstrap Skill Shell
 
 **Files:**
-- Create: `/Users/star/Developer/zach-repo/Zach-Skills/skills/bootstrap-tuist-mobile-project/SKILL.md`
-- Create: `/Users/star/Developer/zach-repo/Zach-Skills/skills/bootstrap-tuist-mobile-project/README.md`
-- Create: `/Users/star/Developer/zach-repo/Zach-Skills/skills/bootstrap-tuist-mobile-project/references/flow.md`
-- Create: `/Users/star/Developer/zach-repo/Zach-Skills/skills/bootstrap-tuist-mobile-project/scripts/bootstrap_mobile_project.py`
-- Create: `/Users/star/Developer/zach-repo/Zach-Skills/skills/bootstrap-tuist-mobile-project/agents/openai.yaml`
+- Create: `/Users/star/Developer/zach-repo/Zach-Skills/skills/create-tuist-mobile-project/SKILL.md`
+- Create: `/Users/star/Developer/zach-repo/Zach-Skills/skills/create-tuist-mobile-project/README.md`
+- Create: `/Users/star/Developer/zach-repo/Zach-Skills/skills/create-tuist-mobile-project/references/flow.md`
+- Create: `/Users/star/Developer/zach-repo/Zach-Skills/skills/create-tuist-mobile-project/scripts/create_mobile_project.py`
+- Create: `/Users/star/Developer/zach-repo/Zach-Skills/skills/create-tuist-mobile-project/agents/openai.yaml`
 - Modify: `/Users/star/Developer/zach-repo/Zach-Skills/README.md`
 
 - [ ] **Step 1: Scaffold the new skill directory**
@@ -26,19 +26,19 @@ Run:
 
 ```bash
 cd /Users/star/Developer/zach-repo/Zach-Skills
-python3 scripts/new_skill.py "Bootstrap Tuist Mobile Project" \
+python3 scripts/new_skill.py "Create Tuist Mobile Project" \
   --description "Use when creating a new Tuist iOS or iOS plus Catalyst project from a public template with interactive setup." \
   --with-agent
 ```
 
-Expected: `skills/bootstrap-tuist-mobile-project/` exists with scaffold files.
+Expected: `skills/create-tuist-mobile-project/` exists with scaffold files.
 
 - [ ] **Step 2: Verify the scaffold output before rewriting it**
 
 Run:
 
 ```bash
-find /Users/star/Developer/zach-repo/Zach-Skills/skills/bootstrap-tuist-mobile-project -maxdepth 3 -type f | sort
+find /Users/star/Developer/zach-repo/Zach-Skills/skills/create-tuist-mobile-project -maxdepth 3 -type f | sort
 ```
 
 Expected: scaffolded `SKILL.md`, `README.md`, optional `agents/openai.yaml`, and reference/script placeholders are present.
@@ -58,7 +58,7 @@ The skill body should treat the CLI as the deterministic executor and keep the s
 
 - [ ] **Step 4: Add a root README entry for the new skill**
 
-Add one row that explains that `bootstrap-tuist-mobile-project` creates local-only, GitHub-backed, or Tuist-Cloud-backed mobile projects from public templates.
+Add one row that explains that `create-tuist-mobile-project` creates local-only, GitHub-backed, or Tuist-Cloud-backed mobile projects from public templates.
 
 - [ ] **Step 5: Commit the skill-shell slice**
 
@@ -66,7 +66,7 @@ Run:
 
 ```bash
 cd /Users/star/Developer/zach-repo/Zach-Skills
-git add README.md skills/bootstrap-tuist-mobile-project
+git add README.md skills/create-tuist-mobile-project
 git commit -m "feat: scaffold mobile project bootstrap skill"
 ```
 
@@ -77,9 +77,9 @@ Expected: one commit containing only the new skill shell plus root README update
 **Files:**
 - Create: `/Users/star/Developer/zach-repo/Zach-Skills/bin/zach-mobile-init`
 - Create: `/Users/star/Developer/zach-repo/Zach-Skills/tests/test_zach_mobile_init.py`
-- Modify: `/Users/star/Developer/zach-repo/Zach-Skills/skills/bootstrap-tuist-mobile-project/scripts/bootstrap_mobile_project.py`
-- Modify: `/Users/star/Developer/zach-repo/Zach-Skills/skills/bootstrap-tuist-mobile-project/README.md`
-- Modify: `/Users/star/Developer/zach-repo/Zach-Skills/skills/bootstrap-tuist-mobile-project/references/flow.md`
+- Modify: `/Users/star/Developer/zach-repo/Zach-Skills/skills/create-tuist-mobile-project/scripts/create_mobile_project.py`
+- Modify: `/Users/star/Developer/zach-repo/Zach-Skills/skills/create-tuist-mobile-project/README.md`
+- Modify: `/Users/star/Developer/zach-repo/Zach-Skills/skills/create-tuist-mobile-project/references/flow.md`
 
 - [ ] **Step 1: Write failing tests for config parsing and placeholder replacement**
 
@@ -144,9 +144,9 @@ Run:
 ```bash
 cd /Users/star/Developer/zach-repo/Zach-Skills
 git add bin/zach-mobile-init tests/test_zach_mobile_init.py \
-  skills/bootstrap-tuist-mobile-project/scripts/bootstrap_mobile_project.py \
-  skills/bootstrap-tuist-mobile-project/README.md \
-  skills/bootstrap-tuist-mobile-project/references/flow.md
+  skills/create-tuist-mobile-project/scripts/create_mobile_project.py \
+  skills/create-tuist-mobile-project/README.md \
+  skills/create-tuist-mobile-project/references/flow.md
 git commit -m "feat: add mobile project initializer cli"
 ```
 
@@ -285,10 +285,10 @@ Expected: one commit for the full Catalyst template skeleton.
 ### Task 5: Add The Skill Orchestrator Logic
 
 **Files:**
-- Modify: `/Users/star/Developer/zach-repo/Zach-Skills/skills/bootstrap-tuist-mobile-project/SKILL.md`
-- Modify: `/Users/star/Developer/zach-repo/Zach-Skills/skills/bootstrap-tuist-mobile-project/scripts/bootstrap_mobile_project.py`
-- Create: `/Users/star/Developer/zach-repo/Zach-Skills/tests/test_bootstrap_mobile_project.py`
-- Modify: `/Users/star/Developer/zach-repo/Zach-Skills/skills/bootstrap-tuist-mobile-project/agents/openai.yaml`
+- Modify: `/Users/star/Developer/zach-repo/Zach-Skills/skills/create-tuist-mobile-project/SKILL.md`
+- Modify: `/Users/star/Developer/zach-repo/Zach-Skills/skills/create-tuist-mobile-project/scripts/create_mobile_project.py`
+- Create: `/Users/star/Developer/zach-repo/Zach-Skills/tests/test_create_mobile_project.py`
+- Modify: `/Users/star/Developer/zach-repo/Zach-Skills/skills/create-tuist-mobile-project/agents/openai.yaml`
 
 - [ ] **Step 1: Write failing tests for capability detection and mode selection**
 
@@ -351,7 +351,7 @@ Run:
 
 ```bash
 cd /Users/star/Developer/zach-repo/Zach-Skills
-git add skills/bootstrap-tuist-mobile-project tests/test_bootstrap_mobile_project.py
+git add skills/create-tuist-mobile-project tests/test_create_mobile_project.py
 git commit -m "feat: add mobile project bootstrap orchestration"
 ```
 
@@ -360,9 +360,9 @@ Expected: one commit covering the interactive orchestration logic.
 ### Task 6: Wire Real Side Effects Carefully
 
 **Files:**
-- Modify: `/Users/star/Developer/zach-repo/Zach-Skills/skills/bootstrap-tuist-mobile-project/scripts/bootstrap_mobile_project.py`
-- Modify: `/Users/star/Developer/zach-repo/Zach-Skills/tests/test_bootstrap_mobile_project.py`
-- Modify: `/Users/star/Developer/zach-repo/Zach-Skills/skills/bootstrap-tuist-mobile-project/README.md`
+- Modify: `/Users/star/Developer/zach-repo/Zach-Skills/skills/create-tuist-mobile-project/scripts/create_mobile_project.py`
+- Modify: `/Users/star/Developer/zach-repo/Zach-Skills/tests/test_create_mobile_project.py`
+- Modify: `/Users/star/Developer/zach-repo/Zach-Skills/skills/create-tuist-mobile-project/README.md`
 
 - [ ] **Step 1: Write failing tests for side-effect sequencing**
 
@@ -422,8 +422,8 @@ Run:
 
 ```bash
 cd /Users/star/Developer/zach-repo/Zach-Skills
-git add skills/bootstrap-tuist-mobile-project tests
-git commit -m "feat: wire mobile bootstrap side effects"
+git add skills/create-tuist-mobile-project tests
+git commit -m "feat: wire mobile project creation side effects"
 ```
 
 Expected: one commit for the remote and local execution flow.
@@ -431,8 +431,8 @@ Expected: one commit for the remote and local execution flow.
 ### Task 7: End-To-End Manual Validation
 
 **Files:**
-- Modify if needed: `/Users/star/Developer/zach-repo/Zach-Skills/skills/bootstrap-tuist-mobile-project/README.md`
-- Modify if needed: `/Users/star/Developer/zach-repo/Zach-Skills/skills/bootstrap-tuist-mobile-project/references/flow.md`
+- Modify if needed: `/Users/star/Developer/zach-repo/Zach-Skills/skills/create-tuist-mobile-project/README.md`
+- Modify if needed: `/Users/star/Developer/zach-repo/Zach-Skills/skills/create-tuist-mobile-project/references/flow.md`
 
 - [ ] **Step 1: Dry-run local-only creation**
 
@@ -469,8 +469,8 @@ Run:
 
 ```bash
 cd /Users/star/Developer/zach-repo/Zach-Skills
-git add skills/bootstrap-tuist-mobile-project
-git commit -m "docs: polish mobile bootstrap flow"
+git add skills/create-tuist-mobile-project
+git commit -m "docs: polish mobile project creation flow"
 ```
 
 Expected: one small documentation-only commit after manual validation.

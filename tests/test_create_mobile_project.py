@@ -6,10 +6,10 @@ from pathlib import Path
 from subprocess import CompletedProcess
 from unittest import mock
 
-SCRIPT_DIR = Path(__file__).resolve().parents[1] / "skills" / "bootstrap-tuist-mobile-project" / "scripts"
+SCRIPT_DIR = Path(__file__).resolve().parents[1] / "skills" / "create-tuist-mobile-project" / "scripts"
 sys.path.insert(0, str(SCRIPT_DIR))
 
-import bootstrap_mobile_project as bpm  # type: ignore[import]
+import create_mobile_project as bpm  # type: ignore[import]
 
 
 def make_status(name: str, state: str, detail: str | None = None) -> bpm.CapabilityStatus:
@@ -17,7 +17,7 @@ def make_status(name: str, state: str, detail: str | None = None) -> bpm.Capabil
 
 
 class CapabilityDetectionTests(unittest.TestCase):
-    @mock.patch("bootstrap_mobile_project.subprocess.run")
+    @mock.patch("create_mobile_project.subprocess.run")
     def test_detect_capabilities_records_states(self, fake_run) -> None:
         fake_run.side_effect = [
             CompletedProcess((), 0, stdout="git version 2.x", stderr=""),

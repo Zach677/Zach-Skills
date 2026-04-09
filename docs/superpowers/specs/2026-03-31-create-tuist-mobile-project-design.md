@@ -1,4 +1,4 @@
-# Bootstrap Tuist Mobile Project Design
+# Create Tuist Mobile Project Design
 
 **Date:** 2026-03-31
 
@@ -64,7 +64,7 @@ The solution has three parts:
    - `bin/zach-mobile-init`
 
 3. One orchestration skill inside `Zach-Skills`:
-   - `bootstrap-tuist-mobile-project`
+   - `create-tuist-mobile-project`
 
 The skill is the interactive layer. The CLI is the deterministic initializer. The templates are the source skeletons.
 
@@ -309,7 +309,7 @@ The Catalyst template should additionally include:
 
 ## Skill Responsibilities
 
-`bootstrap-tuist-mobile-project` should:
+`create-tuist-mobile-project` should:
 
 1. detect environment capabilities
 2. explain available and unavailable paths
@@ -390,7 +390,7 @@ Zach-Skills/
 ├── README.md
 ├── docs/superpowers/specs/
 ├── skills/
-│   └── bootstrap-tuist-mobile-project/
+│   └── create-tuist-mobile-project/
 │       ├── SKILL.md
 │       ├── README.md
 │       ├── references/
@@ -434,6 +434,6 @@ After this spec is approved, the implementation plan should proceed in this orde
 1. create the two public template repos
 2. define the exact placeholder set and replacement rules
 3. implement `zach-mobile-init`
-4. scaffold `bootstrap-tuist-mobile-project`
+4. scaffold `create-tuist-mobile-project`
 5. wire the skill to the CLI and template repos
 6. validate all three creation modes end-to-end

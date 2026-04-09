@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Deterministic initializer that materializes a bootstrap template."""
+"""Deterministic initializer that materializes a starter template."""
 
 import argparse
 import json
@@ -183,7 +183,7 @@ def normalize_executables(destination: Path) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Materialize a bootstrap template directory.")
+    parser = argparse.ArgumentParser(description="Materialize a starter template directory.")
     parser.add_argument("--config", required=True)
     args = parser.parse_args()
 

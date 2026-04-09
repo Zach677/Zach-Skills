@@ -1,6 +1,6 @@
-# Bootstrap Tuist Mobile Project
+# Create Tuist Mobile Project
 
-`bootstrap-tuist-mobile-project` is the evolving shell for a future workflow that will orchestrate the interview, capability detection, and confirmation flow for creating a new Tuist-powered mobile project. The deterministic initializer now exists at `bin/zach-mobile-init`; the skill still defines the higher-level interview and orchestration contract around it.
+`create-tuist-mobile-project` is the evolving shell for a workflow that will orchestrate the interview, capability detection, and confirmation flow for creating a new Tuist-powered mobile project. The deterministic initializer now exists at `bin/zach-mobile-init`; the skill still defines the higher-level interview and orchestration contract around it.
 
 ## Responsibilities
 
@@ -40,7 +40,7 @@
 ## Architecture
 
 - Templates live in the planned public GitHub template repositories `github.com/Zach677/tuist-ios-starter` and `github.com/Zach677/tuist-ios-catalyst-starter`; the skill will later prepare a local copy of one of those templates as the CLI input source.
-- `scripts/bootstrap_mobile_project.py` is the current shell helper surface for capability status reporting, approval collection, and payload construction.
+- `scripts/create_mobile_project.py` is the current shell helper surface for capability status reporting, approval collection, and payload construction.
 - `references/flow.md` describes the intended decision tree, confirmations, and order of side effects that the remaining orchestration work must follow.
 
 ## Side-effect sequencing
@@ -50,7 +50,7 @@ The module now exposes `execute_side_effects`, which runs the confirmed operatio
 ## References
 
 - [Flow doc](references/flow.md)
-- [Bootstrap shell stub](scripts/bootstrap_mobile_project.py)
+- [Bootstrap shell stub](scripts/create_mobile_project.py)
 
 ## Agent Metadata
 
