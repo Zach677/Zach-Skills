@@ -5,7 +5,7 @@ description: Use when creating a new Tuist iOS or iOS plus Catalyst project from
 
 # Bootstrap Tuist Mobile Project
 
-This skill is the evolving orchestration layer for the bootstrap flow above `bin/zach-mobile-init`. The helper module now implements capability detection, blocker reporting, approval collection, and payload assembly; later tasks will add the live side effects.
+This skill is the evolving orchestration layer for the bootstrap flow above `bin/zach-mobile-init`. The helper module now implements capability detection, blocker reporting, approval collection, payload assembly, and side-effect sequencing; later tasks will wire the interactive interview onto those helpers instead of re-implementing them.
 
 ## Trigger Cases
 

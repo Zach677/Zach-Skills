@@ -43,6 +43,10 @@
 - `scripts/bootstrap_mobile_project.py` is the current shell helper surface for capability status reporting, approval collection, and payload construction.
 - `references/flow.md` describes the intended decision tree, confirmations, and order of side effects that the remaining orchestration work must follow.
 
+## Side-effect sequencing
+
+The module now exposes `execute_side_effects`, which runs the confirmed operations in the required order: `gh repo create`, `mise exec -- tuist project create`, `mise exec -- tuist setup cache`, `mise run warm-external-cache`, and finally the git lifecycle (`init`, `add`, `commit`, and optional `push`). Each step is guarded by the collected approvals so the helpers never execute without an explicit “confirmed” answer, and they rely on the template metadata (`owner`, `repo_name`, `full_handle`, etc.) that the payload already assembled.
+
 ## References
 
 - [Flow doc](references/flow.md)

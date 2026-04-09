@@ -78,6 +78,9 @@ MODE_REQUIREMENTS: dict[str, list[str]] = {
 }
 
 
+GIT_COMMIT_MESSAGE = "Initial commit"
+
+
 def _run_check(command: Sequence[str], *, cwd: Path | None) -> tuple[str, str]:
     try:
         result = subprocess.run(
@@ -106,6 +109,175 @@ def detect_capabilities(repo_root: str | Path | None = None) -> List[CapabilityS
     return statuses
 
 
+def _run_command(command: Sequence[str], *, cwd: Path | None = None) -> None:
+    subprocess.run(
+        command,
+        check=True,
+        cwd=str(cwd) if cwd is not None else None,
+    )
+
+
+def create_github_repo(owner: str, repo_name: str, visibility: str) -> None:
+    flag = f"--{visibility}" if visibility in {"public", "private"} else "--private"
+    _run_command(
+        ["gh", "repo", "create", f"{owner}/{repo_name}", flag, "--confirm"],
+    )
+
+
+def tuist_project_create(destination: Path, full_handle: str) -> None:
+    _run_command(
+        ["mise", "exec", "--", "tuist", "project", "create", full_handle],
+        cwd=destination,
+    )
+
+
+def tuist_setup_cache(destination: Path) -> None:
+    _run_command(
+        ["mise", "exec", "--", "tuist", "setup", "cache", "--path", str(destination)],
+        cwd=destination,
+    )
+
+
+def warm_external_cache(destination: Path) -> None:
+    _run_command(
+        ["mise", "run", "warm-external-cache"],
+        cwd=destination,
+    )
+
+
+def git_init(destination: Path) -> None:
+    _run_command(["git", "init"], cwd=destination)
+
+
+def git_add(destination: Path) -> None:
+    _run_command(["git", "add", "-A"], cwd=destination)
+
+
+def git_commit(destination: Path, message: str = GIT_COMMIT_MESSAGE) -> None:
+    _run_command(["git", "commit", "-m", message], cwd=destination)
+
+
+def git_push(destination: Path) -> None:
+    _run_command(["git", "push", "-u", "origin", "HEAD"], cwd=destination)
+
+
+def git_remote_add(destination: Path, remote_name: str, remote_url: str) -> None:
+    _run_command(["git", "remote", "add", remote_name, remote_url], cwd=destination)
+
+
+class _DefaultExecutor:
+    def create_github_repo(self, owner: str, repo_name: str, visibility: str) -> None:
+        create_github_repo(owner, repo_name, visibility)
+
+    def tuist_project_create(self, destination: Path, full_handle: str) -> None:
+        tuist_project_create(destination, full_handle)
+
+    def tuist_setup_cache(self, destination: Path) -> None:
+        tuist_setup_cache(destination)
+
+    def warm_external_cache(self, destination: Path) -> None:
+        warm_external_cache(destination)
+
+    def git_init(self, destination: Path) -> None:
+        git_init(destination)
+
+    def git_add(self, destination: Path) -> None:
+        git_add(destination)
+
+    def git_commit(self, destination: Path, message: str) -> None:
+        git_commit(destination, message)
+
+    def git_push(self, destination: Path) -> None:
+        git_push(destination)
+
+    def git_remote_add(self, destination: Path, remote_name: str, remote_url: str) -> None:
+        git_remote_add(destination, remote_name, remote_url)
+
+
+def _approval_is_confirmed(approvals: ApprovalSet, key: ApprovalKey, action: str) -> bool:
+    state = approvals[key]
+    if state == "not_asked":
+        raise ValueError(f"{action} requires explicit approval; current state is {state}.")
+    return state == "confirmed"
+
+
+def _normalize_approvals_for_mode(mode: str, approvals: ApprovalSet) -> ApprovalSet:
+    normalized = {**approvals}
+    if mode == "local-only":
+        normalized.update(
+            {
+                "create_github_repo": "declined",
+                "create_tuist_cloud_project": "declined",
+                "setup_tuist_cache": "declined",
+                "push_after_init": "declined",
+            }
+        )
+    elif mode == "github-backed":
+        normalized.update(
+            {
+                "create_tuist_cloud_project": "declined",
+                "setup_tuist_cache": "declined",
+            }
+        )
+
+    if normalized["create_initial_commit"] != "confirmed":
+        normalized["push_after_init"] = "declined"
+    return normalized
+
+
+def execute_side_effects(
+    *,
+    payload: BootstrapPayload,
+    approvals: ApprovalSet,
+    destination_path: str | Path,
+    executor: _DefaultExecutor | None = None,
+) -> None:
+    target = Path(destination_path).expanduser().resolve()
+    executor = executor or _DefaultExecutor()
+    approvals = _normalize_approvals_for_mode(payload["mode"], approvals)
+
+    if payload["mode"] != "local-only":
+        if _approval_is_confirmed(approvals, "create_github_repo", "GitHub repo creation"):
+            owner = payload.get("owner")
+            repo_name = payload.get("repo_name")
+            if not owner or not repo_name:
+                raise ValueError("GitHub owner and repo name are required.")
+            visibility = payload.get("visibility", "private")
+            executor.create_github_repo(owner, repo_name, visibility)
+
+    full_handle = payload.get("full_handle")
+
+    if _approval_is_confirmed(
+        approvals, "create_tuist_cloud_project", "Tuist Cloud project creation"
+    ):
+        if not full_handle:
+            raise ValueError("Tuist Cloud creation requires a full_handle.")
+        executor.tuist_project_create(target, full_handle)
+
+    if _approval_is_confirmed(approvals, "setup_tuist_cache", "Tuist Xcode cache setup"):
+        if not full_handle:
+            raise ValueError("Tuist Xcode cache setup requires a full_handle.")
+        executor.tuist_setup_cache(target)
+
+    executor.warm_external_cache(target)
+
+    commit_confirmed = _approval_is_confirmed(
+        approvals, "create_initial_commit", "initial commit creation"
+    )
+
+    if commit_confirmed:
+        executor.git_init(target)
+        if payload["mode"] != "local-only":
+            owner = payload.get("owner")
+            repo_name = payload.get("repo_name")
+            if not owner or not repo_name:
+                raise ValueError("GitHub owner and repo name are required.")
+            executor.git_remote_add(target, "origin", f"https://github.com/{owner}/{repo_name}.git")
+        executor.git_add(target)
+        executor.git_commit(target, GIT_COMMIT_MESSAGE)
+        if _approval_is_confirmed(approvals, "push_after_init", "push after initial commit"):
+            executor.git_push(target)
+
 def build_payload(
     *,
     mode: Literal["local-only", "github-backed", "github-and-tuist-cloud"],
@@ -127,25 +299,7 @@ def build_payload(
 ) -> BootstrapPayload:
     """Build the JSON payload that `bin/zach-mobile-init` consumes."""
 
-    if mode == "local-only":
-        approvals = {
-            **approvals,
-            "create_github_repo": "declined",
-            "create_tuist_cloud_project": "declined",
-            "setup_tuist_cache": "declined",
-        }
-    elif mode == "github-backed":
-        approvals = {
-            **approvals,
-            "create_tuist_cloud_project": "declined",
-            "setup_tuist_cache": "declined",
-        }
-
-    if approvals["create_initial_commit"] != "confirmed":
-        approvals = {
-            **approvals,
-            "push_after_init": "declined",
-        }
+    approvals = _normalize_approvals_for_mode(mode, approvals)
 
     unresolved = [name for name, state in approvals.items() if state == "not_asked"]
     if unresolved:
