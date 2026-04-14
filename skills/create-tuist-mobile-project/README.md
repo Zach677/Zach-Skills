@@ -1,6 +1,6 @@
 # Create Tuist Mobile Project
 
-`create-tuist-mobile-project` is the evolving shell for a workflow that will orchestrate the interview, capability detection, and confirmation flow for creating a new Tuist-powered mobile project. The deterministic initializer now exists at `bin/zach-mobile-init`, and there is now a terminal fallback interview at `bin/zach-mobile-wizard`; the skill still defines the higher-level orchestration contract around them.
+`create-tuist-mobile-project` is the evolving shell for a workflow that will orchestrate the interview, capability detection, and confirmation flow for creating a new Tuist-powered mobile project. The deterministic initializer now exists at `bin/zach-mobile-init`, and there is now a terminal fallback interview at `bin/zach-mobile-wizard`; for a shorter human-facing trigger, the repo also exposes `bin/new-tuist-mobile-project`.
 
 ## Responsibilities
 
@@ -54,6 +54,11 @@ The module now exposes `execute_side_effects`, which runs the confirmed operatio
 - [Flow doc](references/flow.md)
 - [Project creation helper](scripts/create_mobile_project.py)
 - [Terminal wizard](scripts/create_mobile_project_wizard.py)
+
+## Terminal Entry Points
+
+- `bin/zach-mobile-wizard` is the full interactive CLI.
+- `bin/new-tuist-mobile-project` is the short alias intended for humans to remember and trigger quickly.
 
 ## Agent Metadata
 

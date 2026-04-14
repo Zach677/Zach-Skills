@@ -14,7 +14,10 @@ def main() -> int:
 
     import create_mobile_project_wizard as wizard  # type: ignore[import]
 
-    parser = argparse.ArgumentParser(description="Run the interactive Tuist mobile project creation wizard.")
+    parser = argparse.ArgumentParser(
+        prog=Path(sys.argv[0]).name,
+        description="Run the interactive Tuist mobile project creation wizard.",
+    )
     parser.add_argument(
         "--cwd",
         default=".",
