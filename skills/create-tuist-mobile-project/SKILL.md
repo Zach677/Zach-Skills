@@ -5,7 +5,7 @@ description: Use when creating a new Tuist iOS or iOS plus Catalyst project from
 
 # Create Tuist Mobile Project
 
-This skill is the evolving orchestration layer for the project-creation flow above `bin/zach-mobile-init`. The helper module now implements capability detection, blocker reporting, approval collection, payload assembly, and side-effect sequencing, and `bin/zach-mobile-wizard` now provides the terminal one-question-at-a-time fallback that consumes the same rules. For human triggering, the repo also exposes `bin/new-tuist-mobile-project` and `bin/create-tuist-mobile-project` as aliases.
+This skill is the evolving orchestration layer for the project-creation flow above `bin/zach-mobile-init`. The helper module now implements capability detection, blocker reporting, approval collection, payload assembly, and side-effect sequencing, and `bin/zach-mobile-wizard` now provides the terminal one-question-at-a-time fallback that consumes the same rules. For human triggering, the repo also exposes `bin/new-tuist-mobile-project`, `bin/create-tuist-mobile-project`, and the shortest alias `bin/ztm`.
 
 ## Trigger Cases
 
@@ -67,6 +67,7 @@ Once the interview is complete, this skill is expected to build one in-memory pa
 - `bin/zach-mobile-wizard` is the concrete terminal fallback that uses the same helper logic when the runtime cannot render clickable choices.
 - `bin/new-tuist-mobile-project` is the short alias for the same flow.
 - `bin/create-tuist-mobile-project` is the full-name alias that matches the skill name.
+- `bin/ztm` is the shortest local alias for the same flow.
 
 The skill continues to orchestrate the interview; after every confirmation is gathered it resolves the destination path, prepares the template source, and feeds the JSON payload to `bin/zach-mobile-init --config <path-to-json-config>` from the Zach-Skills repo root.
 
