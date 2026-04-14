@@ -190,6 +190,26 @@ class FreshnessParsingTests(unittest.TestCase):
         self.assertEqual(freshness, 1.0)
 
 
+class TopicPreferenceHeuristicsTests(unittest.TestCase):
+    def test_service_benefit_topics_get_strong_reader_fit(self) -> None:
+        score = wechat_hot_writer.estimate_reader_relevance(
+            title="60岁以上坐火车可享15倍积分，带父母出行前先核对这几件事",
+            category="生活服务",
+        )
+
+        self.assertGreaterEqual(score, 0.6)
+
+    def test_service_benefit_topics_get_specific_default_keywords(self) -> None:
+        keywords = wechat_hot_writer.suggest_keywords_for_topic(
+            {
+                "title": "60岁以上坐火车可享15倍积分，带父母出行前先核对这几件事",
+                "category": "生活服务",
+            }
+        )
+
+        self.assertEqual(keywords[1:], ["银发生活", "出行提醒", "福利核对", "家庭"])
+
+
 class ExtendConfigTests(unittest.TestCase):
     def test_configured_extend_file_paths_follow_project_xdg_user_order(self) -> None:
         project_dir = Path("/tmp/project-root")
@@ -285,7 +305,7 @@ class ExtendConfigTests(unittest.TestCase):
             [
                 "看到「旧手机回收又起风波」，普通家庭最该先核对这件事",
                 "别被「旧手机回收又起风波」带偏，先把这一步看明白",
-                "从「旧手机回收又起风波」说起，很多家庭都容易忽视这件事",
+                "看到「旧手机回收又起风波」，先别急着转发，替家里人核对这几件事",
             ],
         )
 
