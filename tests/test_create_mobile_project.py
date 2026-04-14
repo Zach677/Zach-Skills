@@ -87,6 +87,68 @@ class ModeBlockerTests(unittest.TestCase):
             bpm.ensure_mode_capabilities("github-backed", statuses)
 
 
+class InteractiveQuestionTests(unittest.TestCase):
+    def test_mode_question_preserves_all_modes_and_marks_blocked_ones(self) -> None:
+        statuses = [
+            make_status("git", "available"),
+            make_status("gh", "missing"),
+            make_status("gh auth status", "missing"),
+            make_status("mise", "available"),
+            make_status("tuist", "available"),
+            make_status("tuist auth whoami", "unauthenticated"),
+        ]
+
+        question = bpm.build_mode_question(statuses)
+
+        self.assertEqual(question["id"], "mode")
+        self.assertEqual([option["value"] for option in question["options"]], [
+            "local-only",
+            "github-backed",
+            "github-and-tuist-cloud",
+        ])
+        self.assertEqual(question["options"][0]["availability"], "available")
+        self.assertEqual(question["options"][1]["availability"], "blocked")
+        self.assertIn("gh", question["options"][1]["blocked_reason"])
+        self.assertEqual(question["options"][2]["availability"], "blocked")
+        self.assertIn("tuist auth whoami", question["options"][2]["blocked_reason"])
+
+    def test_template_question_can_render_as_request_user_input(self) -> None:
+        question = bpm.build_template_question()
+
+        self.assertTrue(bpm.can_render_request_user_input(question))
+        payload = bpm.to_request_user_input_question(question)
+
+        self.assertEqual(payload["header"], "Template")
+        self.assertEqual(payload["id"], "template")
+        self.assertEqual([option["label"] for option in payload["options"]], ["Pure iOS", "iOS + Catalyst"])
+
+    def test_destination_strategy_question_can_render_as_request_user_input(self) -> None:
+        question = bpm.build_destination_strategy_question("~/Downloads/Starter")
+
+        self.assertTrue(bpm.can_render_request_user_input(question))
+        payload = bpm.to_request_user_input_question(question)
+
+        self.assertEqual(payload["header"], "Directory")
+        self.assertIn("already exists", payload["question"])
+        self.assertEqual([option["label"] for option in payload["options"]], ["Reuse", "Replace", "Abort"])
+
+    def test_blocked_mode_question_refuses_request_user_input_mapping(self) -> None:
+        statuses = [
+            make_status("git", "available"),
+            make_status("gh", "missing"),
+            make_status("gh auth status", "missing"),
+            make_status("mise", "available"),
+            make_status("tuist", "available"),
+            make_status("tuist auth whoami", "available"),
+        ]
+
+        question = bpm.build_mode_question(statuses)
+
+        self.assertFalse(bpm.can_render_request_user_input(question))
+        with self.assertRaisesRegex(ValueError, "blocked options"):
+            bpm.to_request_user_input_question(question)
+
+
 class PayloadAndApprovalTests(unittest.TestCase):
     def test_collect_approvals_defaults_to_not_asked(self) -> None:
         approvals = bpm.collect_approvals()

@@ -54,6 +54,40 @@ ApprovalKey = Literal[
     "push_after_init",
 ]
 
+InteractiveQuestionID = Literal[
+    "mode",
+    "template",
+    "visibility",
+    "destination_strategy",
+]
+
+
+class InteractiveOption(TypedDict):
+    value: str
+    label: str
+    description: str
+    availability: Literal["available", "blocked"]
+    blocked_reason: NotRequired[str]
+
+
+class InteractiveChoiceQuestion(TypedDict):
+    id: InteractiveQuestionID
+    header: str
+    prompt: str
+    options: list[InteractiveOption]
+
+
+class RequestUserInputOption(TypedDict):
+    label: str
+    description: str
+
+
+class RequestUserInputQuestion(TypedDict):
+    header: str
+    id: str
+    question: str
+    options: list[RequestUserInputOption]
+
 
 CAPABILITY_CHECKS: Sequence[tuple[str, Sequence[str]]] = (
     ("git", ("git", "--version")),
@@ -79,6 +113,134 @@ MODE_REQUIREMENTS: dict[str, list[str]] = {
 
 
 GIT_COMMIT_MESSAGE = "Initial commit"
+
+
+MODE_LABELS: dict[str, str] = {
+    "local-only": "Local Only",
+    "github-backed": "GitHub Backed",
+    "github-and-tuist-cloud": "GitHub + Tuist Cloud",
+}
+
+
+def build_mode_question(capabilities: List[CapabilityStatus]) -> InteractiveChoiceQuestion:
+    blockers = describe_mode_blockers(capabilities)
+    options: list[InteractiveOption] = []
+    for mode in ("local-only", "github-backed", "github-and-tuist-cloud"):
+        mode_blockers = blockers[mode]
+        option: InteractiveOption = {
+            "value": mode,
+            "label": MODE_LABELS[mode],
+            "description": "available" if not mode_blockers else f"blocked by: {', '.join(mode_blockers)}",
+            "availability": "available" if not mode_blockers else "blocked",
+        }
+        if mode_blockers:
+            option["blocked_reason"] = ", ".join(mode_blockers)
+        options.append(option)
+
+    return {
+        "id": "mode",
+        "header": "Mode",
+        "prompt": "Choose the project creation mode.",
+        "options": options,
+    }
+
+
+def build_template_question() -> InteractiveChoiceQuestion:
+    return {
+        "id": "template",
+        "header": "Template",
+        "prompt": "Choose the starter template shape.",
+        "options": [
+            {
+                "value": "ios",
+                "label": "Pure iOS",
+                "description": "Create an iPhone-first Tuist app starter.",
+                "availability": "available",
+            },
+            {
+                "value": "ios-catalyst",
+                "label": "iOS + Catalyst",
+                "description": "Create a shared iOS and Mac Catalyst starter.",
+                "availability": "available",
+            },
+        ],
+    }
+
+
+def build_visibility_question() -> InteractiveChoiceQuestion:
+    return {
+        "id": "visibility",
+        "header": "Visibility",
+        "prompt": "Choose the GitHub repository visibility.",
+        "options": [
+            {
+                "value": "private",
+                "label": "Private",
+                "description": "Only invited collaborators can access it.",
+                "availability": "available",
+            },
+            {
+                "value": "public",
+                "label": "Public",
+                "description": "Anyone can view and clone it.",
+                "availability": "available",
+            },
+        ],
+    }
+
+
+def build_destination_strategy_question(path_label: str) -> InteractiveChoiceQuestion:
+    return {
+        "id": "destination_strategy",
+        "header": "Directory",
+        "prompt": f"`{path_label}` already exists. Choose how to proceed.",
+        "options": [
+            {
+                "value": "reuse",
+                "label": "Reuse",
+                "description": "Keep the directory and write into it.",
+                "availability": "available",
+            },
+            {
+                "value": "replace",
+                "label": "Replace",
+                "description": "Delete the directory contents and recreate it.",
+                "availability": "available",
+            },
+            {
+                "value": "abort",
+                "label": "Abort",
+                "description": "Stop here without writing anything.",
+                "availability": "available",
+            },
+        ],
+    }
+
+
+def can_render_request_user_input(question: InteractiveChoiceQuestion) -> bool:
+    return all(option["availability"] == "available" for option in question["options"])
+
+
+def to_request_user_input_question(question: InteractiveChoiceQuestion) -> RequestUserInputQuestion:
+    blocked = [option for option in question["options"] if option["availability"] != "available"]
+    if blocked:
+        blocked_labels = ", ".join(option["label"] for option in blocked)
+        raise ValueError(
+            f"Question '{question['id']}' has blocked options and cannot be rendered as request_user_input: {blocked_labels}."
+        )
+
+    return {
+        "header": question["header"],
+        "id": question["id"],
+        "question": question["prompt"],
+        "options": [
+            {
+                "label": option["label"],
+                "description": option["description"],
+            }
+            for option in question["options"]
+        ],
+    }
 
 
 def _run_check(command: Sequence[str], *, cwd: Path | None) -> tuple[str, str]:
