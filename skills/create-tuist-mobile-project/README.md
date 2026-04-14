@@ -5,7 +5,7 @@
 ## Responsibilities
 
 - summarize CLI tooling (`git`, `gh`, `gh auth status`, `mise`, `mise exec -- tuist version`, `mise exec -- tuist auth whoami`) and surface missing capabilities.
-- ask the user for the mode (`local-only`, `github-backed`, `github-and-tuist-cloud`) and template shape, then follow the spec interview order instead of freelancing question order.
+- ask one question at a time, with short labeled choices for branch decisions, and follow the spec interview order instead of freelancing question order.
 - confirm every external side effect before executing it (repo creation with the chosen visibility, Tuist Cloud project creation, cache setup, initial commit, push).
 - within `github-and-tuist-cloud`, ask separate confirmations for Tuist Cloud project creation and `tuist setup cache` instead of collapsing them into one toggle.
 - fail closed when setup conflicts appear: an existing target directory requires an explicit `reuse`, `replace`, or `abort` choice; a taken GitHub repo name requires asking the user whether to choose another name and, if they refuse, forcing an explicit switch-mode-or-abort choice; and an existing `full_handle` requires asking whether to bind to it or choose another handle.
@@ -26,6 +26,13 @@
 9. Ask for the default iOS simulator device.
 10. If the selected mode is `github-and-tuist-cloud` and current capabilities support it, ask separately whether to create the Tuist Cloud project and whether to run `tuist setup cache`.
 11. Ask whether to create the initial commit and whether to push it.
+
+The interaction should stay single-step:
+
+- ask exactly one decision or one free-form field per turn.
+- do not ask for mode and template in the same message.
+- do not ask the user to answer with comma-separated values or a multi-field blob.
+- for discrete choices, present short labeled options and wait for one answer before moving on.
 
 `full_handle` is normally derived from the confirmed owner and repo name. It is not part of the default interview unless the user needs an explicit override.
 
