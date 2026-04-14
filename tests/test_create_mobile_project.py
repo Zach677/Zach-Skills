@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import io
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 from subprocess import CompletedProcess
@@ -10,6 +12,11 @@ SCRIPT_DIR = Path(__file__).resolve().parents[1] / "skills" / "create-tuist-mobi
 sys.path.insert(0, str(SCRIPT_DIR))
 
 import create_mobile_project as bpm  # type: ignore[import]
+
+WIZARD_SCRIPT_DIR = Path(__file__).resolve().parents[1] / "skills" / "create-tuist-mobile-project" / "scripts"
+sys.path.insert(0, str(WIZARD_SCRIPT_DIR))
+
+import create_mobile_project_wizard as wizard  # type: ignore[import]
 
 
 def make_status(name: str, state: str, detail: str | None = None) -> bpm.CapabilityStatus:
@@ -147,6 +154,109 @@ class InteractiveQuestionTests(unittest.TestCase):
         self.assertFalse(bpm.can_render_request_user_input(question))
         with self.assertRaisesRegex(ValueError, "blocked options"):
             bpm.to_request_user_input_question(question)
+
+
+class WizardHelpersTests(unittest.TestCase):
+    def test_slugify_project_name(self) -> None:
+        self.assertEqual(wizard.slugify_project_name("My App"), "my-app")
+        self.assertEqual(wizard.slugify_project_name("___"), "app")
+
+    def test_prompt_choice_rejects_blocked_option_then_accepts_available_one(self) -> None:
+        question = bpm.build_mode_question(
+            [
+                make_status("git", "available"),
+                make_status("gh", "missing"),
+                make_status("gh auth status", "missing"),
+                make_status("mise", "available"),
+                make_status("tuist", "available"),
+                make_status("tuist auth whoami", "available"),
+            ]
+        )
+        answers = iter(["B", "A"])
+        output = []
+
+        choice = wizard.prompt_choice(
+            question,
+            input_fn=lambda _prompt: next(answers),
+            output_fn=output.append,
+        )
+
+        self.assertEqual(choice, "local-only")
+        self.assertTrue(any("blocked" in line for line in output))
+
+
+class FakeWizardDependencies:
+    def __init__(self, template_path: Path) -> None:
+        self.template_path = template_path
+        self.last_payload = None
+        self.last_approvals = None
+        self.last_destination = None
+
+    def detect_capabilities(self, _cwd: str | Path | None) -> list[bpm.CapabilityStatus]:
+        return [
+            make_status("git", "available"),
+            make_status("gh", "available"),
+            make_status("gh auth status", "available"),
+            make_status("mise", "available"),
+            make_status("tuist", "available"),
+            make_status("tuist auth whoami", "available", "zach"),
+        ]
+
+    def build_payload(self, **kwargs):
+        return bpm.build_payload(**kwargs)
+
+    def clone_template(self, _template: str):
+        return self.template_path, None
+
+    def run_initializer(self, payload):
+        self.last_payload = payload
+        destination = Path(payload["destination_path"])
+        destination.mkdir(parents=True, exist_ok=True)
+        (destination / "mise.toml").write_text("[tools]\n", encoding="utf-8")
+        return {"status": "ok", "destination_path": str(destination)}
+
+    def execute_side_effects(self, *, payload, approvals, destination_path):
+        self.last_payload = payload
+        self.last_approvals = approvals
+        self.last_destination = Path(destination_path)
+
+
+class WizardFlowTests(unittest.TestCase):
+    def test_run_wizard_local_only_builds_payload_and_reports_success(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            answers = iter(
+                [
+                    "A",  # local-only
+                    "A",  # ios
+                    "SkillSmokeApp",
+                    "",   # default destination
+                    "",   # default bundle id
+                    "",   # default simulator
+                    "n",  # no initial commit
+                ]
+            )
+            template_dir = Path("/tmp/template")
+            deps = FakeWizardDependencies(template_dir)
+            output = io.StringIO()
+            cwd = Path(tmpdir)
+
+            code = wizard.run_wizard(
+                cwd=cwd,
+                repo_root=Path("/Users/star/Developer/zach-repo/Zach-Skills"),
+                input_fn=lambda _prompt: next(answers),
+                output_stream=output,
+                dependencies=deps,
+            )
+
+            self.assertEqual(code, 0)
+            self.assertEqual(deps.last_payload["mode"], "local-only")
+            self.assertEqual(deps.last_payload["template"], "ios")
+            self.assertEqual(deps.last_payload["project_name"], "SkillSmokeApp")
+            self.assertEqual(deps.last_payload["bundle_id"], "com.example.skillsmokeapp")
+            self.assertEqual(deps.last_payload["destination_path"], str(cwd / "SkillSmokeApp"))
+            self.assertEqual(deps.last_approvals["create_github_repo"], "declined")
+            self.assertEqual(deps.last_approvals["create_initial_commit"], "declined")
+            self.assertIn("Project created.", output.getvalue())
 
 
 class PayloadAndApprovalTests(unittest.TestCase):

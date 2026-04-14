@@ -1,6 +1,6 @@
 # Create Tuist Mobile Project
 
-`create-tuist-mobile-project` is the evolving shell for a workflow that will orchestrate the interview, capability detection, and confirmation flow for creating a new Tuist-powered mobile project. The deterministic initializer now exists at `bin/zach-mobile-init`; the skill still defines the higher-level interview and orchestration contract around it.
+`create-tuist-mobile-project` is the evolving shell for a workflow that will orchestrate the interview, capability detection, and confirmation flow for creating a new Tuist-powered mobile project. The deterministic initializer now exists at `bin/zach-mobile-init`, and there is now a terminal fallback interview at `bin/zach-mobile-wizard`; the skill still defines the higher-level orchestration contract around them.
 
 ## Responsibilities
 
@@ -12,6 +12,7 @@
 - run `gh repo create`, `mise exec -- tuist project create`, `mise exec -- tuist setup cache`, and Git actions only when the user has explicitly approved them once the orchestration layer is implemented.
 - treat `mise run warm-external-cache` as the default local post-init setup/verification step, executed from the generated project `destination_path`.
 - hand off the filled template, `template_source_path`, destination path, names, handle, identifiers, cache slug, and final approved booleans to `bin/zach-mobile-init --config <path-to-json-config>`, which will consume a prepared local template source and mutate the chosen starter.
+- keep the terminal wizard and any future clickable host integration on the same question schema, so the interaction rules do not fork.
 
 ## Default Interview Order
 
@@ -41,6 +42,7 @@
 
 - Templates live in the planned public GitHub template repositories `github.com/Zach677/tuist-ios-starter` and `github.com/Zach677/tuist-ios-catalyst-starter`; the skill will later prepare a local copy of one of those templates as the CLI input source.
 - `scripts/create_mobile_project.py` is the current shell helper surface for capability status reporting, approval collection, and payload construction.
+- `scripts/create_mobile_project_wizard.py` is the one-question-at-a-time terminal interview that uses the same helper surface and executes the flow without requiring a clickable host runtime.
 - `references/flow.md` describes the intended decision tree, confirmations, and order of side effects that the remaining orchestration work must follow.
 
 ## Side-effect sequencing
@@ -50,7 +52,8 @@ The module now exposes `execute_side_effects`, which runs the confirmed operatio
 ## References
 
 - [Flow doc](references/flow.md)
-- [Bootstrap shell stub](scripts/create_mobile_project.py)
+- [Project creation helper](scripts/create_mobile_project.py)
+- [Terminal wizard](scripts/create_mobile_project_wizard.py)
 
 ## Agent Metadata
 

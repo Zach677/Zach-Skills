@@ -5,7 +5,7 @@ description: Use when creating a new Tuist iOS or iOS plus Catalyst project from
 
 # Create Tuist Mobile Project
 
-This skill is the evolving orchestration layer for the project-creation flow above `bin/zach-mobile-init`. The helper module now implements capability detection, blocker reporting, approval collection, payload assembly, and side-effect sequencing; later tasks will wire the interactive interview onto those helpers instead of re-implementing them.
+This skill is the evolving orchestration layer for the project-creation flow above `bin/zach-mobile-init`. The helper module now implements capability detection, blocker reporting, approval collection, payload assembly, and side-effect sequencing, and `bin/zach-mobile-wizard` now provides the terminal one-question-at-a-time fallback that consumes the same rules.
 
 ## Trigger Cases
 
@@ -20,7 +20,7 @@ This skill is the evolving orchestration layer for the project-creation flow abo
 4. Fail closed on setup conflicts before execution: if the target directory already exists, ask the user to choose `reuse`, `replace`, or `abort`; if the requested GitHub repo name is already taken, ask whether they want to choose another repo name and, if not, force an explicit follow-up choice to switch modes or abort; if the requested `full_handle` already exists, ask whether they want to bind to the existing handle or choose another handle.
 5. When the selected mode is `github-and-tuist-cloud` and the capability state supports it, ask separate confirmations for Tuist Cloud project creation and `tuist setup cache`. Confirm every external side effect before execution (GitHub repo creation with the chosen visibility, Tuist Cloud creation, `tuist setup cache`, initial commit, push) by using `collect_approvals()` as the approval shape and then replacing `not_asked` with explicit answers during the interview. Never downgrade silently when a capability is missing; `ensure_mode_capabilities()` raises first so the conversation must redirect or fix tooling.
 6. When the mode is `github-backed` or `github-and-tuist-cloud`, call `gh repo create` only after explicit approval.
-7. Resolve the destination path and prepare a local template source path. In later tasks, run `bin/zach-mobile-init --config <path-to-json-config>` from the Zach-Skills repo root with the filled-in metadata and template choice. The future CLI consumes that prepared local source and performs local file mutation only.
+7. Resolve the destination path and prepare a local template source path. In terminal-only contexts, the host may delegate to `bin/zach-mobile-wizard`, which asks the same questions directly and then calls `bin/zach-mobile-init`. In host-driven contexts, later tasks may still run `bin/zach-mobile-init --config <path-to-json-config>` from the Zach-Skills repo root with the filled-in metadata and template choice.
 8. If Tuist Cloud creation is confirmed, later tasks will run `mise exec -- tuist project create <full_handle>` from the chosen project root. If cache setup is confirmed, later tasks will run `mise exec -- tuist setup cache --path <destination_path>` afterward.
 9. Treat `mise run warm-external-cache` as the default post-init local verification/setup step once the initializer and templates exist. Run it from the generated project `destination_path`, then commit/push if requested.
 10. Present the final destination path, repo URL, and a quick checklist of the available commands.
@@ -64,6 +64,7 @@ Once the interview is complete, this skill is expected to build one in-memory pa
 - `ensure_mode_capabilities()` raises when the requested mode lacks a capability, enforcing the no-silent-downgrade guardrail before any side effect occurs.
 - `collect_approvals()` returns the fixed approval shape with `not_asked` defaults so the interview layer can replace them with explicit user answers.
 - `build_payload()` assembles the in-memory contract (including mode-aware Cloud/cache booleans) that later tasks will serialize into the JSON config for `bin/zach-mobile-init`.
+- `bin/zach-mobile-wizard` is the concrete terminal fallback that uses the same helper logic when the runtime cannot render clickable choices.
 
 The skill continues to orchestrate the interview; after every confirmation is gathered it resolves the destination path, prepares the template source, and feeds the JSON payload to `bin/zach-mobile-init --config <path-to-json-config>` from the Zach-Skills repo root.
 
@@ -71,3 +72,4 @@ The skill continues to orchestrate the interview; after every confirmation is ga
 
 - [references/flow.md](references/flow.md)
 - [scripts/create_mobile_project.py](scripts/create_mobile_project.py)
+- [scripts/create_mobile_project_wizard.py](scripts/create_mobile_project_wizard.py)

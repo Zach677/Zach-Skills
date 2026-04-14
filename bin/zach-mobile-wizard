@@ -1,0 +1,49 @@
+#!/usr/bin/env python3
+"""Interactive CLI for create-tuist-mobile-project."""
+
+from __future__ import annotations
+
+import argparse
+import sys
+from pathlib import Path
+
+
+def main() -> int:
+    repo_root = Path(__file__).resolve().parents[1]
+    sys.path.insert(0, str(repo_root / "skills" / "create-tuist-mobile-project" / "scripts"))
+
+    import create_mobile_project_wizard as wizard  # type: ignore[import]
+
+    parser = argparse.ArgumentParser(description="Run the interactive Tuist mobile project creation wizard.")
+    parser.add_argument(
+        "--cwd",
+        default=".",
+        help="Directory where the wizard should create the project (default: current directory).",
+    )
+    parser.add_argument(
+        "--ios-template-path",
+        default=None,
+        help="Optional local path to the pure iOS starter template.",
+    )
+    parser.add_argument(
+        "--ios-catalyst-template-path",
+        default=None,
+        help="Optional local path to the iOS + Catalyst starter template.",
+    )
+    args = parser.parse_args()
+
+    dependencies = wizard.default_dependencies(repo_root)
+    if args.ios_template_path:
+        dependencies.ios_template_path = Path(args.ios_template_path)
+    if args.ios_catalyst_template_path:
+        dependencies.ios_catalyst_template_path = Path(args.ios_catalyst_template_path)
+
+    return wizard.run_wizard(
+        cwd=Path(args.cwd).expanduser().resolve(),
+        repo_root=repo_root,
+        dependencies=dependencies,
+    )
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
