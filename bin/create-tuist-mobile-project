@@ -8,5 +8,5 @@ SCRIPT_DIR="$(
   cd "$(dirname "$SCRIPT_PATH")" && pwd
 )"
 
-ZACH_MOBILE_WIZARD_PROG="new-tuist-mobile-project" \
-  exec -a new-tuist-mobile-project "$SCRIPT_DIR/zach-mobile-wizard" "$@"
+ZACH_MOBILE_WIZARD_PROG="create-tuist-mobile-project" \
+  exec -a create-tuist-mobile-project "$SCRIPT_DIR/zach-mobile-wizard" "$@"

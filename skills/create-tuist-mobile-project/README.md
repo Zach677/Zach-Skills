@@ -59,6 +59,7 @@ The module now exposes `execute_side_effects`, which runs the confirmed operatio
 
 - `bin/zach-mobile-wizard` is the full interactive CLI.
 - `bin/new-tuist-mobile-project` is the short alias intended for humans to remember and trigger quickly.
+- `bin/create-tuist-mobile-project` is the explicit full-name alias that matches the skill name.
 
 ## Agent Metadata
 

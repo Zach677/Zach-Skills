@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from pathlib import Path
 
@@ -15,7 +16,7 @@ def main() -> int:
     import create_mobile_project_wizard as wizard  # type: ignore[import]
 
     parser = argparse.ArgumentParser(
-        prog=Path(sys.argv[0]).name,
+        prog=os.environ.get("ZACH_MOBILE_WIZARD_PROG", Path(sys.argv[0]).name),
         description="Run the interactive Tuist mobile project creation wizard.",
     )
     parser.add_argument(

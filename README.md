@@ -37,6 +37,7 @@ Each skill owns its own directory under `skills/`, along with its own:
 - `bin/zach-mobile-init` materializes a starter template from a JSON payload.
 - `bin/zach-mobile-wizard` runs a terminal interview and then calls `zach-mobile-init`.
 - `bin/new-tuist-mobile-project` is the short alias for `zach-mobile-wizard`.
+- `bin/create-tuist-mobile-project` is the full-name alias that matches the skill name.
 
 ## Repo Conventions
 
