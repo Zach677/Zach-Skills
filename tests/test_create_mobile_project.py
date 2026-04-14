@@ -161,6 +161,16 @@ class WizardHelpersTests(unittest.TestCase):
         self.assertEqual(wizard.slugify_project_name("My App"), "my-app")
         self.assertEqual(wizard.slugify_project_name("___"), "app")
 
+    def test_validators(self) -> None:
+        self.assertIsNone(wizard.validate_project_name("My App"))
+        self.assertIsNotNone(wizard.validate_project_name("!bad"))
+        self.assertIsNone(wizard.validate_repo_owner("Zach677"))
+        self.assertIsNotNone(wizard.validate_repo_owner("bad owner"))
+        self.assertIsNone(wizard.validate_repo_name("starter-app"))
+        self.assertIsNotNone(wizard.validate_repo_name("Starter App"))
+        self.assertIsNone(wizard.validate_bundle_id("com.example.app"))
+        self.assertIsNotNone(wizard.validate_bundle_id("badbundle"))
+
     def test_prompt_choice_rejects_blocked_option_then_accepts_available_one(self) -> None:
         question = bpm.build_mode_question(
             [
@@ -191,6 +201,7 @@ class FakeWizardDependencies:
         self.last_payload = None
         self.last_approvals = None
         self.last_destination = None
+        self.existing_repos: set[tuple[str, str]] = set()
 
     def detect_capabilities(self, _cwd: str | Path | None) -> list[bpm.CapabilityStatus]:
         return [
@@ -207,6 +218,9 @@ class FakeWizardDependencies:
 
     def clone_template(self, _template: str):
         return self.template_path, None
+
+    def github_repo_exists(self, owner: str, repo_name: str) -> bool:
+        return (owner, repo_name) in self.existing_repos
 
     def run_initializer(self, payload):
         self.last_payload = payload
@@ -257,6 +271,42 @@ class WizardFlowTests(unittest.TestCase):
             self.assertEqual(deps.last_approvals["create_github_repo"], "declined")
             self.assertEqual(deps.last_approvals["create_initial_commit"], "declined")
             self.assertIn("Project created.", output.getvalue())
+
+    def test_run_wizard_repo_exists_can_fallback_to_local_only(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            answers = iter(
+                [
+                    "B",  # github-backed
+                    "A",  # ios
+                    "RepoExistsApp",
+                    "",   # default destination
+                    "Zach677",
+                    "",   # default repo name
+                    "n",  # do not choose another repo name
+                    "A",  # switch to local-only
+                    "",   # default bundle id
+                    "",   # default simulator
+                    "n",  # no initial commit
+                ]
+            )
+            template_dir = Path("/tmp/template")
+            deps = FakeWizardDependencies(template_dir)
+            deps.existing_repos.add(("Zach677", "repoexistsapp"))
+            output = io.StringIO()
+            cwd = Path(tmpdir)
+
+            code = wizard.run_wizard(
+                cwd=cwd,
+                repo_root=Path("/Users/star/Developer/zach-repo/Zach-Skills"),
+                input_fn=lambda _prompt: next(answers),
+                output_stream=output,
+                dependencies=deps,
+            )
+
+            self.assertEqual(code, 0)
+            self.assertEqual(deps.last_payload["mode"], "local-only")
+            self.assertEqual(deps.last_approvals["create_github_repo"], "declined")
+            self.assertIn("already exists on GitHub", output.getvalue())
 
 
 class PayloadAndApprovalTests(unittest.TestCase):

@@ -35,6 +35,14 @@ class WizardDependencies:
     ios_template_path: Path | None = None
     ios_catalyst_template_path: Path | None = None
 
+    def github_repo_exists(self, owner: str, repo_name: str) -> bool:
+        result = subprocess.run(
+            ["gh", "repo", "view", f"{owner}/{repo_name}", "--json", "name"],
+            capture_output=True,
+            text=True,
+        )
+        return result.returncode == 0
+
     def clone_template(self, template: str) -> tuple[Path, TemporaryDirectory | None]:
         override = self.ios_template_path if template == "ios" else self.ios_catalyst_template_path
         if override is not None:
@@ -80,6 +88,30 @@ def default_dependencies(repo_root: Path) -> WizardDependencies:
 def slugify_project_name(project_name: str) -> str:
     slug = re.sub(r"[^a-z0-9]+", "-", project_name.lower()).strip("-")
     return slug or "app"
+
+
+def validate_project_name(value: str) -> str | None:
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9 _-]*", value):
+        return "Use letters, numbers, spaces, hyphens, or underscores, and start with a letter or number."
+    return None
+
+
+def validate_repo_owner(value: str) -> str | None:
+    if not re.fullmatch(r"[A-Za-z0-9-]+", value):
+        return "GitHub owner can only contain letters, numbers, and hyphens."
+    return None
+
+
+def validate_repo_name(value: str) -> str | None:
+    if not re.fullmatch(r"[a-z0-9._-]+", value):
+        return "Repository name should use lowercase letters, numbers, dots, underscores, or hyphens."
+    return None
+
+
+def validate_bundle_id(value: str) -> str | None:
+    if not re.fullmatch(r"[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+", value):
+        return "Bundle identifier should look like com.example.app."
+    return None
 
 
 def detect_tuist_cloud_owner(capabilities: Sequence[cmp.CapabilityStatus]) -> str | None:
@@ -211,7 +243,12 @@ def run_wizard(
         output_fn=output_fn,
     )
 
-    project_name = prompt_text("Project name", input_fn=input_fn, output_fn=output_fn)
+    project_name = prompt_text(
+        "Project name",
+        input_fn=input_fn,
+        output_fn=output_fn,
+        validator=validate_project_name,
+    )
     destination_default = str(build_destination_default(cwd, project_name).expanduser())
     destination_path = Path(
         prompt_text("Destination path", input_fn=input_fn, output_fn=output_fn, default=destination_default)
@@ -237,24 +274,78 @@ def run_wizard(
     tuist_owner = detect_tuist_cloud_owner(capabilities)
 
     if mode != "local-only":
-        owner = prompt_text("GitHub owner", input_fn=input_fn, output_fn=output_fn)
-        repo_name = prompt_text(
-            "Repository name",
+        owner = prompt_text(
+            "GitHub owner",
             input_fn=input_fn,
             output_fn=output_fn,
-            default=slugify_project_name(project_name),
+            validator=validate_repo_owner,
         )
-        visibility = prompt_choice(
-            cmp.build_visibility_question(),
-            input_fn=input_fn,
-            output_fn=output_fn,
-        )
+        while True:
+            repo_name = prompt_text(
+                "Repository name",
+                input_fn=input_fn,
+                output_fn=output_fn,
+                default=slugify_project_name(project_name),
+                validator=validate_repo_name,
+            )
+            if not dependencies.github_repo_exists(owner, repo_name):
+                break
+
+            output_fn(f"`{owner}/{repo_name}` already exists on GitHub.")
+            if prompt_confirmation(
+                "GitHub",
+                "Choose another repository name?",
+                input_fn=input_fn,
+                output_fn=output_fn,
+                default_yes=True,
+            ):
+                continue
+
+            fallback = prompt_choice(
+                {
+                    "id": "destination_strategy",
+                    "header": "Repo Exists",
+                    "prompt": "The requested repo already exists. Choose how to proceed.",
+                    "options": [
+                        {
+                            "value": "switch-to-local-only",
+                            "label": "Switch to Local Only",
+                            "description": "Skip GitHub creation and keep this run local.",
+                            "availability": "available",
+                        },
+                        {
+                            "value": "abort",
+                            "label": "Abort",
+                            "description": "Stop here without creating anything else.",
+                            "availability": "available",
+                        },
+                    ],
+                },
+                input_fn=input_fn,
+                output_fn=output_fn,
+            )
+            if fallback == "abort":
+                output_fn("Aborted before writing files.")
+                return 1
+            mode = "local-only"
+            owner = None
+            repo_name = None
+            visibility = None
+            break
+
+        if mode != "local-only":
+            visibility = prompt_choice(
+                cmp.build_visibility_question(),
+                input_fn=input_fn,
+                output_fn=output_fn,
+            )
 
     bundle_id = prompt_text(
         "Bundle identifier",
         input_fn=input_fn,
         output_fn=output_fn,
         default=f"com.example.{slugify_project_name(project_name)}",
+        validator=validate_bundle_id,
     )
     ios_simulator_device = prompt_text(
         "Default iOS simulator device",

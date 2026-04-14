@@ -1,6 +1,6 @@
 # Create Tuist Mobile Project
 
-`create-tuist-mobile-project` is the evolving shell for a workflow that will orchestrate the interview, capability detection, and confirmation flow for creating a new Tuist-powered mobile project. The deterministic initializer now exists at `bin/zach-mobile-init`, and there is now a terminal fallback interview at `bin/zach-mobile-wizard`; for human-facing triggers, the repo also exposes `bin/new-tuist-mobile-project`, `bin/create-tuist-mobile-project`, and the shortest alias `bin/ztm`.
+`create-tuist-mobile-project` is the evolving shell for a workflow that will orchestrate the interview, capability detection, and confirmation flow for creating a new Tuist-powered mobile project. The deterministic initializer now exists at `bin/zach-mobile-init`, and there is now a terminal fallback interview at `bin/zach-mobile-wizard`; the shortest human-facing trigger is `bin/ztm`.
 
 ## Responsibilities
 
@@ -58,8 +58,6 @@ The module now exposes `execute_side_effects`, which runs the confirmed operatio
 ## Terminal Entry Points
 
 - `bin/zach-mobile-wizard` is the full interactive CLI.
-- `bin/new-tuist-mobile-project` is the short alias intended for humans to remember and trigger quickly.
-- `bin/create-tuist-mobile-project` is the explicit full-name alias that matches the skill name.
 - `bin/ztm` is the shortest alias for repeated local use.
 
 ## Agent Metadata
