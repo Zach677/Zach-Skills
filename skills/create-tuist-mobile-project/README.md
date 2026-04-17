@@ -2,6 +2,12 @@
 
 `create-tuist-mobile-project` is the evolving shell for a workflow that will orchestrate the interview, capability detection, and confirmation flow for creating a new Tuist-powered mobile project. The deterministic initializer now exists at `bin/zach-mobile-init`, and there is now a terminal fallback interview at `bin/zach-mobile-wizard`; the shortest human-facing trigger is `bin/ztm`.
 
+The product now has one shared interview core and three intended frontends:
+
+- terminal via `ztm`
+- Codex via the Codex interaction adapter
+- Claude Code via the Claude interaction adapter
+
 ## Responsibilities
 
 - summarize CLI tooling (`git`, `gh`, `gh auth status`, `mise`, `mise exec -- tuist version`, `mise exec -- tuist auth whoami`) and surface missing capabilities.
@@ -43,6 +49,7 @@
 - Templates live in the planned public GitHub template repositories `github.com/Zach677/tuist-ios-starter` and `github.com/Zach677/tuist-ios-catalyst-starter`; the skill will later prepare a local copy of one of those templates as the CLI input source.
 - `scripts/create_mobile_project.py` is the current shell helper surface for capability status reporting, approval collection, and payload construction.
 - `scripts/create_mobile_project_wizard.py` is the one-question-at-a-time terminal interview that uses the same helper surface and executes the flow without requiring a clickable host runtime.
+- `references/host-adapters.md` describes how Codex and Claude Code should consume the same interview state machine instead of forking the flow.
 - `references/flow.md` describes the intended decision tree, confirmations, and order of side effects that the remaining orchestration work must follow.
 
 ## Side-effect sequencing
@@ -52,6 +59,7 @@ The module now exposes `execute_side_effects`, which runs the confirmed operatio
 ## References
 
 - [Flow doc](references/flow.md)
+- [Host adapters](references/host-adapters.md)
 - [Project creation helper](scripts/create_mobile_project.py)
 - [Terminal wizard](scripts/create_mobile_project_wizard.py)
 

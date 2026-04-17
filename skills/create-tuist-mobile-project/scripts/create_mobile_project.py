@@ -54,12 +54,33 @@ ApprovalKey = Literal[
     "push_after_init",
 ]
 
-InteractiveQuestionID = Literal[
+ChoiceQuestionID = Literal[
     "mode",
     "template",
     "visibility",
     "destination_strategy",
+    "create_tuist_cloud_project",
+    "setup_tuist_cache",
+    "create_initial_commit",
+    "push_after_init",
+    "repo_exists_resolution",
+    "full_handle_exists_resolution",
 ]
+
+TextQuestionID = Literal[
+    "project_name",
+    "destination_path",
+    "owner",
+    "repo_name",
+    "bundle_id",
+    "ios_simulator_device",
+    "full_handle",
+]
+
+InterviewQuestionID = ChoiceQuestionID | TextQuestionID
+
+RepoExistsResolution = Literal["choose-another", "switch-to-local-only", "abort"]
+FullHandleExistsResolution = Literal["bind-existing", "choose-another", "abort"]
 
 
 class InteractiveOption(TypedDict):
@@ -71,10 +92,52 @@ class InteractiveOption(TypedDict):
 
 
 class InteractiveChoiceQuestion(TypedDict):
-    id: InteractiveQuestionID
+    id: ChoiceQuestionID
     header: str
     prompt: str
     options: list[InteractiveOption]
+
+
+class InteractiveTextQuestion(TypedDict):
+    id: TextQuestionID
+    header: str
+    prompt: str
+    default: NotRequired[str]
+    required: bool
+
+
+class CodexTextFallbackQuestion(TypedDict):
+    header: str
+    prompt: str
+    default: NotRequired[str]
+
+
+class ClaudeCodeAskUserQuestion(TypedDict):
+    prompt: str
+
+
+class InterviewState(TypedDict, total=False):
+    mode: Literal["local-only", "github-backed", "github-and-tuist-cloud"]
+    template: Literal["ios", "ios-catalyst"]
+    project_name: str
+    destination_path: str
+    destination_exists: bool
+    destination_strategy: Literal["create", "reuse", "replace", "abort"]
+    owner: str
+    repo_name: str
+    repo_exists: bool
+    repo_exists_resolution: RepoExistsResolution
+    visibility: Literal["private", "public"]
+    bundle_id: str
+    ios_simulator_device: str
+    create_tuist_cloud_project: bool
+    setup_tuist_cache: bool
+    full_handle: str
+    full_handle_exists: bool
+    full_handle_exists_resolution: FullHandleExistsResolution
+    create_initial_commit: bool
+    push_after_init: bool
+    aborted: bool
 
 
 class RequestUserInputOption(TypedDict):
@@ -217,6 +280,114 @@ def build_destination_strategy_question(path_label: str) -> InteractiveChoiceQue
     }
 
 
+def build_confirmation_question(
+    question_id: Literal[
+        "create_tuist_cloud_project",
+        "setup_tuist_cache",
+        "create_initial_commit",
+        "push_after_init",
+    ],
+    header: str,
+    prompt: str,
+    *,
+    yes_label: str = "Yes",
+    no_label: str = "No",
+) -> InteractiveChoiceQuestion:
+    return {
+        "id": question_id,
+        "header": header,
+        "prompt": prompt,
+        "options": [
+            {
+                "value": "yes",
+                "label": yes_label,
+                "description": "Proceed with this step.",
+                "availability": "available",
+            },
+            {
+                "value": "no",
+                "label": no_label,
+                "description": "Skip this step.",
+                "availability": "available",
+            },
+        ],
+    }
+
+
+def build_repo_exists_resolution_question(owner: str, repo_name: str) -> InteractiveChoiceQuestion:
+    return {
+        "id": "repo_exists_resolution",
+        "header": "Repo Exists",
+        "prompt": f"`{owner}/{repo_name}` already exists on GitHub. Choose how to proceed.",
+        "options": [
+            {
+                "value": "choose-another",
+                "label": "Choose Another Name",
+                "description": "Enter a different repository name.",
+                "availability": "available",
+            },
+            {
+                "value": "switch-to-local-only",
+                "label": "Switch to Local Only",
+                "description": "Skip GitHub creation and keep the run local.",
+                "availability": "available",
+            },
+            {
+                "value": "abort",
+                "label": "Abort",
+                "description": "Stop here without creating anything else.",
+                "availability": "available",
+            },
+        ],
+    }
+
+
+def build_full_handle_exists_resolution_question(full_handle: str) -> InteractiveChoiceQuestion:
+    return {
+        "id": "full_handle_exists_resolution",
+        "header": "Handle Exists",
+        "prompt": f"`{full_handle}` already exists in Tuist Cloud. Choose how to proceed.",
+        "options": [
+            {
+                "value": "bind-existing",
+                "label": "Bind Existing",
+                "description": "Use the existing Tuist Cloud handle.",
+                "availability": "available",
+            },
+            {
+                "value": "choose-another",
+                "label": "Choose Another Handle",
+                "description": "Enter a different full handle.",
+                "availability": "available",
+            },
+            {
+                "value": "abort",
+                "label": "Abort",
+                "description": "Stop here without creating anything else.",
+                "availability": "available",
+            },
+        ],
+    }
+
+
+def build_text_question(
+    question_id: TextQuestionID,
+    header: str,
+    prompt: str,
+    *,
+    default: str | None = None,
+) -> InteractiveTextQuestion:
+    question: InteractiveTextQuestion = {
+        "id": question_id,
+        "header": header,
+        "prompt": prompt,
+        "required": True,
+    }
+    if default is not None:
+        question["default"] = default
+    return question
+
+
 def can_render_request_user_input(question: InteractiveChoiceQuestion) -> bool:
     return all(option["availability"] == "available" for option in question["options"])
 
@@ -241,6 +412,255 @@ def to_request_user_input_question(question: InteractiveChoiceQuestion) -> Reque
             for option in question["options"]
         ],
     }
+
+
+def to_codex_text_fallback_question(question: InteractiveTextQuestion) -> CodexTextFallbackQuestion:
+    fallback: CodexTextFallbackQuestion = {
+        "header": question["header"],
+        "prompt": question["prompt"],
+    }
+    if "default" in question:
+        fallback["default"] = question["default"]
+    return fallback
+
+
+def _recommended_choice(question: InteractiveChoiceQuestion) -> InteractiveOption | None:
+    for option in question["options"]:
+        if option["availability"] == "available":
+            return option
+    return None
+
+
+def to_claude_code_ask_user_question(
+    question: InteractiveChoiceQuestion | InteractiveTextQuestion,
+    *,
+    project_label: str,
+    branch: str,
+    task_label: str,
+) -> ClaudeCodeAskUserQuestion:
+    lines = [
+        f"Project: {project_label}",
+        f"Branch: {branch}",
+        f"Task: {task_label}",
+        "",
+        f"{question['header']}: {question['prompt']}",
+    ]
+
+    if "options" in question:
+        recommended = _recommended_choice(question)
+        if recommended is not None:
+            lines.extend(
+                [
+                    "",
+                    f"RECOMMENDATION: Choose {recommended['label']} because it is the first available path.",
+                    "",
+                    "Options:",
+                ]
+            )
+        else:
+            lines.extend(["", "Options:"])
+
+        for index, option in enumerate(question["options"]):
+            letter = chr(ord("A") + index)
+            suffix = (
+                f" ({option['availability']}: {option.get('blocked_reason', option['description'])})"
+                if option["availability"] == "blocked"
+                else f" ({option['description']})"
+            )
+            lines.append(f"{letter}) {option['label']}{suffix}")
+    else:
+        if "default" in question:
+            lines.append("")
+            lines.append(f"Default: {question['default']}")
+        lines.append("")
+        lines.append("Reply with one value only.")
+
+    return {"prompt": "\n".join(lines)}
+
+
+def apply_choice_answer(state: InterviewState, question_id: ChoiceQuestionID, value: str) -> InterviewState:
+    next_state: InterviewState = {**state}
+
+    if question_id in {"mode", "template", "visibility", "destination_strategy"}:
+        next_state[question_id] = value  # type: ignore[index]
+        return next_state
+
+    if question_id in {"create_tuist_cloud_project", "setup_tuist_cache", "create_initial_commit", "push_after_init"}:
+        next_state[question_id] = value == "yes"  # type: ignore[index]
+        if question_id == "create_initial_commit" and value != "yes":
+            next_state.pop("push_after_init", None)
+        return next_state
+
+    if question_id == "repo_exists_resolution":
+        if value == "choose-another":
+            next_state.pop("repo_name", None)
+            next_state["repo_exists"] = False
+        elif value == "switch-to-local-only":
+            next_state["mode"] = "local-only"
+            for key in (
+                "owner",
+                "repo_name",
+                "repo_exists",
+                "visibility",
+                "create_tuist_cloud_project",
+                "setup_tuist_cache",
+                "full_handle",
+                "full_handle_exists",
+                "push_after_init",
+            ):
+                next_state.pop(key, None)
+        elif value == "abort":
+            next_state["aborted"] = True
+        return next_state
+
+    if question_id == "full_handle_exists_resolution":
+        if value == "choose-another":
+            next_state.pop("full_handle", None)
+            next_state["full_handle_exists"] = False
+        elif value == "bind-existing":
+            next_state["full_handle_exists"] = False
+        elif value == "abort":
+            next_state["aborted"] = True
+        return next_state
+
+    return next_state
+
+
+def apply_text_answer(state: InterviewState, question_id: TextQuestionID, value: str) -> InterviewState:
+    next_state: InterviewState = {**state}
+    next_state[question_id] = value  # type: ignore[index]
+    return next_state
+
+
+def next_interview_question(
+    *,
+    capabilities: List[CapabilityStatus],
+    state: InterviewState,
+    tuist_owner: str | None = None,
+) -> InteractiveChoiceQuestion | InteractiveTextQuestion | None:
+    if state.get("aborted"):
+        return None
+
+    if "mode" not in state:
+        return build_mode_question(capabilities)
+    if "template" not in state:
+        return build_template_question()
+    if "project_name" not in state:
+        return build_text_question("project_name", "Project Name", "Choose the project name.")
+    if "destination_path" not in state:
+        return build_text_question(
+            "destination_path",
+            "Destination",
+            "Choose the destination path.",
+            default=str(Path(".").resolve() / state["project_name"]),
+        )
+    if state.get("destination_exists") and "destination_strategy" not in state:
+        return build_destination_strategy_question(state["destination_path"])
+
+    if state["mode"] != "local-only":
+        if "owner" not in state:
+            return build_text_question("owner", "GitHub Owner", "Choose the GitHub owner.")
+        if "repo_name" not in state:
+            return build_text_question(
+                "repo_name",
+                "Repository Name",
+                "Choose the GitHub repository name.",
+                default=Path(state["project_name"]).name.lower().replace(" ", "-"),
+            )
+        if state.get("repo_exists"):
+            return build_repo_exists_resolution_question(state["owner"], state["repo_name"])
+        if "visibility" not in state:
+            return build_visibility_question()
+
+    if "bundle_id" not in state:
+        slug = Path(state["project_name"]).name.lower().replace(" ", "")
+        return build_text_question(
+            "bundle_id",
+            "Bundle Identifier",
+            "Choose the app bundle identifier.",
+            default=f"com.example.{slug}",
+        )
+    if "ios_simulator_device" not in state:
+        return build_text_question(
+            "ios_simulator_device",
+            "Simulator",
+            "Choose the default iOS simulator device.",
+            default="iPhone 16",
+        )
+
+    if state["mode"] == "github-and-tuist-cloud":
+        if "create_tuist_cloud_project" not in state:
+            return build_confirmation_question(
+                "create_tuist_cloud_project",
+                "Tuist Cloud",
+                "Create a Tuist Cloud project?",
+            )
+        if "setup_tuist_cache" not in state:
+            return build_confirmation_question(
+                "setup_tuist_cache",
+                "Tuist Cache",
+                "Run `tuist setup cache` after initialization?",
+            )
+        if state.get("create_tuist_cloud_project") or state.get("setup_tuist_cache"):
+            if "full_handle" not in state:
+                owner = tuist_owner or state.get("owner") or "local"
+                repo = state.get("repo_name") or Path(state["project_name"]).name.lower().replace(" ", "-")
+                return build_text_question(
+                    "full_handle",
+                    "Tuist Handle",
+                    "Choose the Tuist Cloud full handle.",
+                    default=f"{owner}/{repo}",
+                )
+            if state.get("full_handle_exists"):
+                return build_full_handle_exists_resolution_question(state["full_handle"])
+
+    if "create_initial_commit" not in state:
+        return build_confirmation_question(
+            "create_initial_commit",
+            "Git",
+            "Create the initial commit?",
+        )
+    if state.get("create_initial_commit") and state["mode"] != "local-only" and "push_after_init" not in state:
+        return build_confirmation_question(
+            "push_after_init",
+            "Git",
+            "Push the initial commit after setup?",
+        )
+    return None
+
+
+def build_codex_interaction_question(
+    *,
+    capabilities: List[CapabilityStatus],
+    state: InterviewState,
+    tuist_owner: str | None = None,
+) -> RequestUserInputQuestion | None:
+    question = next_interview_question(capabilities=capabilities, state=state, tuist_owner=tuist_owner)
+    if question is None or "options" not in question:
+        return None
+    if not can_render_request_user_input(question):
+        return None
+    return to_request_user_input_question(question)
+
+
+def build_claude_interaction_prompt(
+    *,
+    capabilities: List[CapabilityStatus],
+    state: InterviewState,
+    project_label: str,
+    branch: str,
+    task_label: str,
+    tuist_owner: str | None = None,
+) -> str | None:
+    question = next_interview_question(capabilities=capabilities, state=state, tuist_owner=tuist_owner)
+    if question is None:
+        return None
+    return to_claude_code_ask_user_question(
+        question,
+        project_label=project_label,
+        branch=branch,
+        task_label=task_label,
+    )["prompt"]
 
 
 def _run_check(command: Sequence[str], *, cwd: Path | None) -> tuple[str, str]:

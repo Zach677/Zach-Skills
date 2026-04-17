@@ -5,7 +5,7 @@ description: Use when creating a new Tuist iOS or iOS plus Catalyst project from
 
 # Create Tuist Mobile Project
 
-This skill is the evolving orchestration layer for the project-creation flow above `bin/zach-mobile-init`. The helper module now implements capability detection, blocker reporting, approval collection, payload assembly, and side-effect sequencing, and `bin/zach-mobile-wizard` now provides the terminal one-question-at-a-time fallback that consumes the same rules. For human triggering, the shortest local alias is `bin/ztm`.
+This skill is the evolving orchestration layer for the project-creation flow above `bin/zach-mobile-init`. The helper module now implements capability detection, blocker reporting, approval collection, payload assembly, side-effect sequencing, a shared interview state machine, and host adapters for Codex and Claude Code. `bin/zach-mobile-wizard` provides the terminal one-question-at-a-time fallback that consumes the same rules. For human triggering, the shortest local alias is `bin/ztm`.
 
 ## Trigger Cases
 
@@ -59,6 +59,8 @@ Once the interview is complete, this skill is expected to build one in-memory pa
 ## Skill Helpers
 
 - `detect_capabilities(repo_root=...)` probes the six required commands from an explicit working directory and records `available`, `unauthenticated`, or `missing` for each so the interview knows the true capability surface.
+- `next_interview_question(...)` is the shared interview state machine entrypoint. Hosts should ask only the question it returns.
+- `apply_choice_answer(...)` and `apply_text_answer(...)` are the shared state transitions so Codex, Claude Code, and the terminal wizard do not fork behavior.
 - `describe_mode_blockers()` maps the requirement tree (`local-only`, `github-backed`, `github-and-tuist-cloud`) to the exact missing capabilities so the user can decide whether to fix a toolchain rather than silently switching modes.
 - `describe_mode_messages()` turns those blocker lists into user-facing mode summaries so the conversation can explain why a mode is blocked.
 - `ensure_mode_capabilities()` raises when the requested mode lacks a capability, enforcing the no-silent-downgrade guardrail before any side effect occurs.
@@ -66,11 +68,14 @@ Once the interview is complete, this skill is expected to build one in-memory pa
 - `build_payload()` assembles the in-memory contract (including mode-aware Cloud/cache booleans) that later tasks will serialize into the JSON config for `bin/zach-mobile-init`.
 - `bin/zach-mobile-wizard` is the concrete terminal fallback that uses the same helper logic when the runtime cannot render clickable choices.
 - `bin/ztm` is the shortest local alias for the same flow.
+- `build_codex_interaction_question(...)` returns a `request_user_input`-compatible question only when the next question can be represented safely as clickable.
+- `build_claude_interaction_prompt(...)` renders the next shared interview step into a Claude-friendly one-question-at-a-time prompt.
 
 The skill continues to orchestrate the interview; after every confirmation is gathered it resolves the destination path, prepares the template source, and feeds the JSON payload to `bin/zach-mobile-init --config <path-to-json-config>` from the Zach-Skills repo root.
 
 ## Files To Load On Demand
 
 - [references/flow.md](references/flow.md)
+- [references/host-adapters.md](references/host-adapters.md)
 - [scripts/create_mobile_project.py](scripts/create_mobile_project.py)
 - [scripts/create_mobile_project_wizard.py](scripts/create_mobile_project_wizard.py)

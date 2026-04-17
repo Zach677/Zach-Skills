@@ -155,8 +155,12 @@ v3 should deliver these pieces:
    - visibility question generation
    - destination strategy question generation
    - request-user-input mapping behavior
-3. document that blocked options cannot be silently dropped
-4. document that the future runtime integration should use clickable UI only when the question is representable without losing state
+3. add a shared interview state machine with explicit answer-application helpers
+4. add host adapter entrypoints for:
+   - Codex
+   - Claude Code
+5. document that blocked options cannot be silently dropped
+6. document that the future runtime integration should use clickable UI only when the question is representable without losing state
 
 v3 does **not** need to ship the final runtime hook itself.
 
@@ -167,6 +171,8 @@ That final hook belongs in the host execution layer that actually has access to 
 v3 is successful when:
 
 - branch questions exist as structured code objects
+- the next interview question can be derived from a shared state machine
+- Codex and Claude Code adapter entrypoints exist in code
 - tests lock their shape and blocked-option behavior
 - the design explicitly describes when clickable rendering is allowed
 - the design explicitly describes when fallback to plain text is required

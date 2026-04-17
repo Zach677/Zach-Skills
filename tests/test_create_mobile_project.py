@@ -155,6 +155,199 @@ class InteractiveQuestionTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "blocked options"):
             bpm.to_request_user_input_question(question)
 
+    def test_codex_text_fallback_question_preserves_default(self) -> None:
+        question = bpm.build_text_question(
+            "project_name",
+            "Project Name",
+            "Choose the project name.",
+            default="StarterApp",
+        )
+
+        payload = bpm.to_codex_text_fallback_question(question)
+
+        self.assertEqual(payload["header"], "Project Name")
+        self.assertEqual(payload["default"], "StarterApp")
+
+    def test_claude_code_ask_user_question_renders_choice_prompt(self) -> None:
+        prompt = bpm.to_claude_code_ask_user_question(
+            bpm.build_template_question(),
+            project_label="Zach-Skills",
+            branch="feat/test",
+            task_label="Choose template",
+        )["prompt"]
+
+        self.assertIn("Project: Zach-Skills", prompt)
+        self.assertIn("RECOMMENDATION:", prompt)
+        self.assertIn("A) Pure iOS", prompt)
+        self.assertIn("B) iOS + Catalyst", prompt)
+
+    def test_claude_code_ask_user_question_renders_text_prompt(self) -> None:
+        prompt = bpm.to_claude_code_ask_user_question(
+            bpm.build_text_question(
+                "bundle_id",
+                "Bundle Identifier",
+                "Choose the bundle identifier.",
+                default="com.example.app",
+            ),
+            project_label="Zach-Skills",
+            branch="feat/test",
+            task_label="Collect metadata",
+        )["prompt"]
+
+        self.assertIn("Default: com.example.app", prompt)
+        self.assertIn("Reply with one value only.", prompt)
+
+    def test_next_interview_question_walks_core_order(self) -> None:
+        capabilities = [
+            make_status("git", "available"),
+            make_status("gh", "available"),
+            make_status("gh auth status", "available"),
+            make_status("mise", "available"),
+            make_status("tuist", "available"),
+            make_status("tuist auth whoami", "available", "zach"),
+        ]
+
+        state: bpm.InterviewState = {}
+        self.assertEqual(bpm.next_interview_question(capabilities=capabilities, state=state)["id"], "mode")
+        state = bpm.apply_choice_answer(state, "mode", "github-and-tuist-cloud")
+        self.assertEqual(bpm.next_interview_question(capabilities=capabilities, state=state)["id"], "template")
+        state = bpm.apply_choice_answer(state, "template", "ios")
+        self.assertEqual(bpm.next_interview_question(capabilities=capabilities, state=state)["id"], "project_name")
+
+    def test_next_interview_question_handles_repo_exists_branch(self) -> None:
+        capabilities = [
+            make_status("git", "available"),
+            make_status("gh", "available"),
+            make_status("gh auth status", "available"),
+            make_status("mise", "available"),
+            make_status("tuist", "available"),
+            make_status("tuist auth whoami", "available", "zach"),
+        ]
+        state: bpm.InterviewState = {
+            "mode": "github-backed",
+            "template": "ios",
+            "project_name": "Starter",
+            "destination_path": "/tmp/starter",
+            "owner": "zach",
+            "repo_name": "starter",
+            "repo_exists": True,
+        }
+
+        question = bpm.next_interview_question(capabilities=capabilities, state=state)
+        self.assertEqual(question["id"], "repo_exists_resolution")
+
+        state = bpm.apply_choice_answer(state, "repo_exists_resolution", "switch-to-local-only")
+        self.assertEqual(state["mode"], "local-only")
+        self.assertNotIn("owner", state)
+        self.assertEqual(bpm.next_interview_question(capabilities=capabilities, state=state)["id"], "bundle_id")
+
+    def test_next_interview_question_handles_cloud_handle_branch(self) -> None:
+        capabilities = [
+            make_status("git", "available"),
+            make_status("gh", "available"),
+            make_status("gh auth status", "available"),
+            make_status("mise", "available"),
+            make_status("tuist", "available"),
+            make_status("tuist auth whoami", "available", "zach"),
+        ]
+        state: bpm.InterviewState = {
+            "mode": "github-and-tuist-cloud",
+            "template": "ios",
+            "project_name": "Starter",
+            "destination_path": "/tmp/starter",
+            "owner": "zach",
+            "repo_name": "starter",
+            "visibility": "private",
+            "bundle_id": "com.example.starter",
+            "ios_simulator_device": "iPhone 16",
+            "create_tuist_cloud_project": True,
+            "setup_tuist_cache": True,
+        }
+
+        question = bpm.next_interview_question(capabilities=capabilities, state=state, tuist_owner="zach")
+        self.assertEqual(question["id"], "full_handle")
+        self.assertEqual(question["default"], "zach/starter")
+
+    def test_build_codex_interaction_question_returns_clickable_choice_when_safe(self) -> None:
+        capabilities = [
+            make_status("git", "available"),
+            make_status("gh", "available"),
+            make_status("gh auth status", "available"),
+            make_status("mise", "available"),
+            make_status("tuist", "available"),
+            make_status("tuist auth whoami", "available", "zach"),
+        ]
+        state: bpm.InterviewState = {"mode": "local-only"}
+
+        payload = bpm.build_codex_interaction_question(capabilities=capabilities, state=state)
+
+        self.assertIsNotNone(payload)
+        assert payload is not None
+        self.assertEqual(payload["id"], "template")
+        self.assertEqual(len(payload["options"]), 2)
+
+    def test_build_codex_interaction_question_returns_none_for_text_question(self) -> None:
+        capabilities = [
+            make_status("git", "available"),
+            make_status("gh", "available"),
+            make_status("gh auth status", "available"),
+            make_status("mise", "available"),
+            make_status("tuist", "available"),
+            make_status("tuist auth whoami", "available", "zach"),
+        ]
+        state: bpm.InterviewState = {
+            "mode": "local-only",
+            "template": "ios",
+        }
+
+        payload = bpm.build_codex_interaction_question(capabilities=capabilities, state=state)
+
+        self.assertIsNone(payload)
+
+    def test_build_codex_interaction_question_returns_none_for_blocked_choice(self) -> None:
+        capabilities = [
+            make_status("git", "available"),
+            make_status("gh", "missing"),
+            make_status("gh auth status", "missing"),
+            make_status("mise", "available"),
+            make_status("tuist", "available"),
+            make_status("tuist auth whoami", "available"),
+        ]
+        state: bpm.InterviewState = {}
+
+        payload = bpm.build_codex_interaction_question(capabilities=capabilities, state=state)
+
+        self.assertIsNone(payload)
+
+    def test_build_claude_interaction_prompt_uses_next_question(self) -> None:
+        capabilities = [
+            make_status("git", "available"),
+            make_status("gh", "available"),
+            make_status("gh auth status", "available"),
+            make_status("mise", "available"),
+            make_status("tuist", "available"),
+            make_status("tuist auth whoami", "available", "zach"),
+        ]
+        state: bpm.InterviewState = {
+            "mode": "github-backed",
+            "template": "ios",
+            "project_name": "Starter",
+            "destination_path": "/tmp/starter",
+        }
+
+        prompt = bpm.build_claude_interaction_prompt(
+            capabilities=capabilities,
+            state=state,
+            project_label="Zach-Skills",
+            branch="feat/create-tuist-mobile-project-clickable-v3",
+            task_label="Continue interview",
+        )
+
+        self.assertIsNotNone(prompt)
+        assert prompt is not None
+        self.assertIn("GitHub Owner", prompt)
+        self.assertIn("Reply with one value only.", prompt)
+
 
 class WizardHelpersTests(unittest.TestCase):
     def test_slugify_project_name(self) -> None:

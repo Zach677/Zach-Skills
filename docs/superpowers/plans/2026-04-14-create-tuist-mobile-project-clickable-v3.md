@@ -5,12 +5,14 @@
 ## Scope
 
 - add structured branch-question builders to `skills/create-tuist-mobile-project/scripts/create_mobile_project.py`
+- add a shared interview state machine plus answer-application helpers
+- add Codex and Claude Code adapter entrypoints
 - add unit coverage for the new question schema and request-user-input mapping rules
 - add a design spec that explains the host-runtime constraint and the fallback model
 
 ## Tasks
 
-### Task 1: Add structured question builders
+### Task 1: Add structured question builders and shared state machine
 
 **Files**
 
@@ -24,6 +26,8 @@
   - template
   - visibility
   - destination strategy
+- add `next_interview_question(...)`
+- add answer-application helpers so hosts and terminal wizard can share branching rules
 - add a mapping helper for the runtime-native clickable question payload
 - reject mappings that would silently drop blocked options
 
@@ -31,7 +35,7 @@
 
 - the helper module can produce a structured branch question without relying on prompt text alone
 
-### Task 2: Add tests for the question schema
+### Task 2: Add tests for the question schema and host adapters
 
 **Files**
 
@@ -42,6 +46,9 @@
 - verify mode questions preserve all modes and mark blocked choices
 - verify template and destination-strategy questions map cleanly to clickable payloads
 - verify blocked questions are refused by the clickable mapper
+- verify the shared state machine emits the correct next question
+- verify Codex adapter output for safe clickable questions
+- verify Claude adapter output for the next interview step
 
 **Done when**
 
@@ -60,6 +67,11 @@
 - explain the two-path runtime model:
   - clickable UI when supported
   - single-step text fallback otherwise
+- document the host matrix:
+  - Codex Plan mode
+  - Codex Default mode
+  - Claude Code
+  - terminal
 - define the acceptance criteria for the next real integration step
 
 **Done when**

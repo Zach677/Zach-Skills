@@ -38,6 +38,12 @@ Each skill owns its own directory under `skills/`, along with its own:
 - `bin/zach-mobile-wizard` runs a terminal interview and then calls `zach-mobile-init`.
 - `bin/ztm` is the shortest alias for day-to-day use.
 
+## Interaction Layers
+
+- Core interview logic lives in `skills/create-tuist-mobile-project/scripts/create_mobile_project.py`.
+- Terminal fallback lives in `skills/create-tuist-mobile-project/scripts/create_mobile_project_wizard.py` and is triggered by `ztm`.
+- Codex and Claude Code are expected to consume the same question graph through host adapters, not reimplement the flow from scratch.
+
 ## Repo Conventions
 
 - Put new skills under `skills/<skill-name>/`.
