@@ -68,6 +68,27 @@ The module now exposes `execute_side_effects`, which runs the confirmed operatio
 - `bin/zach-mobile-wizard` is the full interactive CLI.
 - `bin/ztm` is the shortest alias for repeated local use.
 
+## AI / Automation Usage
+
+For agents that already collected answers, use the wizard in non-interactive mode instead of replaying fake keystrokes.
+
+Example:
+
+```bash
+ztm \
+  --non-interactive \
+  --mode local-only \
+  --template ios \
+  --project-name Starter \
+  --destination-path ~/Downloads/Starter \
+  --bundle-id com.example.starter \
+  --ios-simulator-device "iPhone 17" \
+  --no-create-initial-commit
+```
+
+If a required field is missing in `--non-interactive` mode, the wizard fails loudly instead of prompting.
+If a fail-closed conflict is hit in `--non-interactive` mode, for example an existing GitHub repo or existing Tuist Cloud handle, the wizard fails loudly instead of silently switching behavior.
+
 ## Agent Metadata
 
 The agent metadata in `agents/openai.yaml` guides the default prompt so the skill triggers when a user needs a new Tuist mobile project setup.

@@ -6,6 +6,7 @@
    - entrypoint: `ztm`
    - implementation: `bin/zach-mobile-wizard`
    - interaction: one-question-at-a-time text prompts in the terminal
+   - automation path: `ztm --non-interactive ...`
 
 2. **Codex**
    - shared source: `scripts/create_mobile_project.py`
@@ -74,6 +75,14 @@ ztm
 ```
 
 This is the shortest supported user command.
+
+For agent execution after answers are already collected, the intended trigger is:
+
+```bash
+ztm --non-interactive ...
+```
+
+That avoids simulating keystrokes and keeps the execution deterministic.
 
 ### Skill trigger
 

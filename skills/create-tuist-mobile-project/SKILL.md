@@ -70,6 +70,7 @@ Once the interview is complete, this skill is expected to build one in-memory pa
 - `bin/ztm` is the shortest local alias for the same flow.
 - `build_codex_interaction_question(...)` returns a `request_user_input`-compatible question only when the next question can be represented safely as clickable.
 - `build_claude_interaction_prompt(...)` renders the next shared interview step into a Claude-friendly one-question-at-a-time prompt.
+- `ztm --non-interactive ...` is the execution path for hosts that already collected answers and just need a deterministic runner.
 
 The skill continues to orchestrate the interview; after every confirmation is gathered it resolves the destination path, prepares the template source, and feeds the JSON payload to `bin/zach-mobile-init --config <path-to-json-config>` from the Zach-Skills repo root.
 

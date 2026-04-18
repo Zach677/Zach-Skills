@@ -24,6 +24,17 @@ def main() -> int:
         default=".",
         help="Directory where the wizard should create the project (default: current directory).",
     )
+    parser.add_argument("--mode", choices=["local-only", "github-backed", "github-and-tuist-cloud"])
+    parser.add_argument("--template", choices=["ios", "ios-catalyst"])
+    parser.add_argument("--project-name")
+    parser.add_argument("--destination-path")
+    parser.add_argument("--destination-strategy", choices=["create", "reuse", "replace", "abort"])
+    parser.add_argument("--owner")
+    parser.add_argument("--repo-name")
+    parser.add_argument("--visibility", choices=["private", "public"])
+    parser.add_argument("--bundle-id")
+    parser.add_argument("--ios-simulator-device")
+    parser.add_argument("--full-handle")
     parser.add_argument(
         "--ios-template-path",
         default=None,
@@ -34,6 +45,21 @@ def main() -> int:
         default=None,
         help="Optional local path to the iOS + Catalyst starter template.",
     )
+    parser.add_argument("--create-tuist-cloud", dest="create_tuist_cloud_project", action="store_true")
+    parser.add_argument("--no-create-tuist-cloud", dest="create_tuist_cloud_project", action="store_false")
+    parser.add_argument("--setup-tuist-cache", dest="setup_tuist_cache", action="store_true")
+    parser.add_argument("--no-setup-tuist-cache", dest="setup_tuist_cache", action="store_false")
+    parser.add_argument("--create-initial-commit", dest="create_initial_commit", action="store_true")
+    parser.add_argument("--no-create-initial-commit", dest="create_initial_commit", action="store_false")
+    parser.add_argument("--push-after-init", dest="push_after_init", action="store_true")
+    parser.add_argument("--no-push-after-init", dest="push_after_init", action="store_false")
+    parser.add_argument("--non-interactive", action="store_true")
+    parser.set_defaults(
+        create_tuist_cloud_project=None,
+        setup_tuist_cache=None,
+        create_initial_commit=None,
+        push_after_init=None,
+    )
     args = parser.parse_args()
 
     dependencies = wizard.default_dependencies(repo_root)
@@ -42,11 +68,39 @@ def main() -> int:
     if args.ios_catalyst_template_path:
         dependencies.ios_catalyst_template_path = Path(args.ios_catalyst_template_path)
 
-    return wizard.run_wizard(
-        cwd=Path(args.cwd).expanduser().resolve(),
-        repo_root=repo_root,
-        dependencies=dependencies,
-    )
+    prefilled = {
+        key: value
+        for key, value in {
+            "mode": args.mode,
+            "template": args.template,
+            "project_name": args.project_name,
+            "destination_path": args.destination_path,
+            "destination_strategy": args.destination_strategy,
+            "owner": args.owner,
+            "repo_name": args.repo_name,
+            "visibility": args.visibility,
+            "bundle_id": args.bundle_id,
+            "ios_simulator_device": args.ios_simulator_device,
+            "full_handle": args.full_handle,
+            "create_tuist_cloud_project": args.create_tuist_cloud_project,
+            "setup_tuist_cache": args.setup_tuist_cache,
+            "create_initial_commit": args.create_initial_commit,
+            "push_after_init": args.push_after_init,
+        }.items()
+        if value is not None
+    }
+
+    try:
+        return wizard.run_wizard(
+            cwd=Path(args.cwd).expanduser().resolve(),
+            repo_root=repo_root,
+            dependencies=dependencies,
+            prefilled=prefilled,
+            non_interactive=args.non_interactive,
+        )
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
 
 
 if __name__ == "__main__":

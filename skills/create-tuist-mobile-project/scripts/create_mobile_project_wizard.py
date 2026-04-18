@@ -224,6 +224,76 @@ def prompt_confirmation(
         output_fn("Answer yes or no.")
 
 
+def resolve_choice_value(
+    question: cmp.InteractiveChoiceQuestion,
+    raw_value: str,
+) -> cmp.InteractiveOption:
+    normalized = raw_value.strip().lower()
+    for index, option in enumerate(question["options"]):
+        letter = chr(ord("A") + index).lower()
+        if normalized in {letter, option["value"], option["label"].lower()}:
+            return option
+    raise ValueError(f"'{raw_value}' is not a valid choice for {question['id']}.")
+
+
+def choose_or_prompt(
+    question: cmp.InteractiveChoiceQuestion,
+    *,
+    prefilled: str | bool | None,
+    input_fn: InputFn,
+    output_fn: OutputFn,
+    non_interactive: bool,
+) -> str:
+    if isinstance(prefilled, bool):
+        prefilled_value = "yes" if prefilled else "no"
+    else:
+        prefilled_value = prefilled
+
+    if prefilled_value is not None:
+        option = resolve_choice_value(question, str(prefilled_value))
+        if option["availability"] != "available":
+            raise ValueError(
+                f"Choice '{prefilled_value}' for {question['id']} is blocked: {option.get('blocked_reason', 'unavailable')}."
+            )
+        return option["value"]
+
+    if non_interactive:
+        raise ValueError(f"Missing required choice for {question['id']} in non-interactive mode.")
+
+    return prompt_choice(question, input_fn=input_fn, output_fn=output_fn)
+
+
+def text_or_prompt(
+    prompt: str,
+    *,
+    prefilled: str | None,
+    input_fn: InputFn,
+    output_fn: OutputFn,
+    default: str | None = None,
+    validator: Callable[[str], str | None] | None = None,
+    non_interactive: bool,
+) -> str:
+    if prefilled is not None:
+        if validator is not None:
+            error = validator(prefilled)
+            if error:
+                raise ValueError(error)
+        return prefilled
+
+    if non_interactive:
+        if default is not None:
+            return default
+        raise ValueError(f"Missing required value for '{prompt}' in non-interactive mode.")
+
+    return prompt_text(
+        prompt,
+        input_fn=input_fn,
+        output_fn=output_fn,
+        default=default,
+        validator=validator,
+    )
+
+
 def build_destination_default(cwd: Path, project_name: str) -> Path:
     return cwd / project_name
 
@@ -235,45 +305,63 @@ def run_wizard(
     input_fn: InputFn = input,
     output_stream: TextIO = sys.stdout,
     dependencies: WizardDependencies | None = None,
+    prefilled: cmp.InterviewState | None = None,
+    non_interactive: bool = False,
 ) -> int:
     dependencies = dependencies or default_dependencies(repo_root)
     output_fn = lambda line: print(line, file=output_stream)
+    prefilled = dict(prefilled or {})
 
     capabilities = dependencies.detect_capabilities(cwd)
     output_fn("Capabilities:")
     for line in format_capability_summary(capabilities):
         output_fn(line)
 
-    mode = prompt_choice(
+    mode = choose_or_prompt(
         cmp.build_mode_question(capabilities),
+        prefilled=prefilled.get("mode"),
         input_fn=input_fn,
         output_fn=output_fn,
+        non_interactive=non_interactive,
     )
     cmp.ensure_mode_capabilities(mode, capabilities)
 
-    template = prompt_choice(
+    template = choose_or_prompt(
         cmp.build_template_question(),
+        prefilled=prefilled.get("template"),
         input_fn=input_fn,
         output_fn=output_fn,
+        non_interactive=non_interactive,
     )
 
-    project_name = prompt_text(
+    project_name = text_or_prompt(
         "Project name",
+        prefilled=prefilled.get("project_name"),
         input_fn=input_fn,
         output_fn=output_fn,
         validator=validate_project_name,
+        non_interactive=non_interactive,
     )
     destination_default = str(build_destination_default(cwd, project_name).expanduser())
     destination_path = Path(
-        prompt_text("Destination path", input_fn=input_fn, output_fn=output_fn, default=destination_default)
+        text_or_prompt(
+            "Destination path",
+            prefilled=prefilled.get("destination_path"),
+            input_fn=input_fn,
+            output_fn=output_fn,
+            default=destination_default,
+            non_interactive=non_interactive,
+        )
     ).expanduser()
 
     destination_strategy: Literal["create", "reuse", "replace", "abort"] = "create"
     if destination_path.exists():
-        destination_strategy = prompt_choice(
+        destination_strategy = choose_or_prompt(
             cmp.build_destination_strategy_question(str(destination_path)),
+            prefilled=prefilled.get("destination_strategy"),
             input_fn=input_fn,
             output_fn=output_fn,
+            non_interactive=non_interactive,
         )
         if destination_strategy == "abort":
             output_fn("Aborted before writing files.")
@@ -289,24 +377,30 @@ def run_wizard(
     tuist_owner = detect_tuist_cloud_owner(capabilities)
 
     if mode != "local-only":
-        owner = prompt_text(
+        owner = text_or_prompt(
             "GitHub owner",
+            prefilled=prefilled.get("owner"),
             input_fn=input_fn,
             output_fn=output_fn,
             validator=validate_repo_owner,
+            non_interactive=non_interactive,
         )
         while True:
-            repo_name = prompt_text(
+            repo_name = text_or_prompt(
                 "Repository name",
+                prefilled=prefilled.get("repo_name"),
                 input_fn=input_fn,
                 output_fn=output_fn,
                 default=slugify_project_name(project_name),
                 validator=validate_repo_name,
+                non_interactive=non_interactive,
             )
             if not dependencies.github_repo_exists(owner, repo_name):
                 break
 
             output_fn(f"`{owner}/{repo_name}` already exists on GitHub.")
+            if non_interactive:
+                raise ValueError(f"`{owner}/{repo_name}` already exists on GitHub.")
             if prompt_confirmation(
                 "GitHub",
                 "Choose another repository name?",
@@ -349,45 +443,59 @@ def run_wizard(
             break
 
         if mode != "local-only":
-            visibility = prompt_choice(
+            visibility = choose_or_prompt(
                 cmp.build_visibility_question(),
+                prefilled=prefilled.get("visibility"),
                 input_fn=input_fn,
                 output_fn=output_fn,
+                non_interactive=non_interactive,
             )
 
-    bundle_id = prompt_text(
+    bundle_id = text_or_prompt(
         "Bundle identifier",
+        prefilled=prefilled.get("bundle_id"),
         input_fn=input_fn,
         output_fn=output_fn,
         default=f"com.example.{slugify_project_name(project_name)}",
         validator=validate_bundle_id,
+        non_interactive=non_interactive,
     )
-    ios_simulator_device = prompt_text(
+    ios_simulator_device = text_or_prompt(
         "Default iOS simulator device",
+        prefilled=prefilled.get("ios_simulator_device"),
         input_fn=input_fn,
         output_fn=output_fn,
         default="iPhone 16",
+        non_interactive=non_interactive,
     )
 
     if mode == "github-and-tuist-cloud":
-        create_tuist_cloud = prompt_confirmation(
-            "Tuist Cloud",
-            "Create a Tuist Cloud project?",
+        create_tuist_cloud = choose_or_prompt(
+            cmp.build_confirmation_question(
+                "create_tuist_cloud_project",
+                "Tuist Cloud",
+                "Create a Tuist Cloud project?",
+            ),
+            prefilled=prefilled.get("create_tuist_cloud_project"),
             input_fn=input_fn,
             output_fn=output_fn,
-            default_yes=True,
-        )
+            non_interactive=non_interactive,
+        ) == "yes"
         if create_tuist_cloud:
             suggested_owner = tuist_owner or owner or "local"
-            full_handle = prompt_text(
+            full_handle = text_or_prompt(
                 "Tuist full handle",
+                prefilled=prefilled.get("full_handle"),
                 input_fn=input_fn,
                 output_fn=output_fn,
                 default=f"{suggested_owner}/{repo_name}",
                 validator=validate_full_handle,
+                non_interactive=non_interactive,
             )
             while dependencies.full_handle_exists(full_handle):
                 output_fn(f"`{full_handle}` already exists in Tuist Cloud.")
+                if non_interactive:
+                    raise ValueError(f"`{full_handle}` already exists in Tuist Cloud.")
                 resolution = prompt_choice(
                     cmp.build_full_handle_exists_resolution_question(full_handle),
                     input_fn=input_fn,
@@ -406,25 +514,34 @@ def run_wizard(
                     output_fn=output_fn,
                     default=f"{suggested_owner}/{repo_name}",
                     validator=validate_full_handle,
+                    non_interactive=non_interactive,
                 )
-        setup_tuist_cache = prompt_confirmation(
-            "Tuist Cache",
-            "Run `tuist setup cache` after initialization?",
+        setup_tuist_cache = choose_or_prompt(
+            cmp.build_confirmation_question(
+                "setup_tuist_cache",
+                "Tuist Cache",
+                "Run `tuist setup cache` after initialization?",
+            ),
+            prefilled=prefilled.get("setup_tuist_cache"),
             input_fn=input_fn,
             output_fn=output_fn,
-            default_yes=True,
-        )
+            non_interactive=non_interactive,
+        ) == "yes"
         if setup_tuist_cache and not full_handle:
             suggested_owner = tuist_owner or owner or "local"
-            full_handle = prompt_text(
+            full_handle = text_or_prompt(
                 "Tuist full handle",
+                prefilled=prefilled.get("full_handle"),
                 input_fn=input_fn,
                 output_fn=output_fn,
                 default=f"{suggested_owner}/{repo_name}",
                 validator=validate_full_handle,
+                non_interactive=non_interactive,
             )
         while setup_tuist_cache and full_handle and dependencies.full_handle_exists(full_handle) and not bound_existing_full_handle:
             output_fn(f"`{full_handle}` already exists in Tuist Cloud.")
+            if non_interactive:
+                raise ValueError(f"`{full_handle}` already exists in Tuist Cloud.")
             resolution = prompt_choice(
                 cmp.build_full_handle_exists_resolution_question(full_handle),
                 input_fn=input_fn,
@@ -443,24 +560,33 @@ def run_wizard(
                 output_fn=output_fn,
                 default=f"{suggested_owner}/{repo_name}",
                 validator=validate_full_handle,
+                non_interactive=non_interactive,
             )
 
-    create_initial_commit = prompt_confirmation(
-        "Git",
-        "Create the initial commit?",
+    create_initial_commit = choose_or_prompt(
+        cmp.build_confirmation_question(
+            "create_initial_commit",
+            "Git",
+            "Create the initial commit?",
+        ),
+        prefilled=prefilled.get("create_initial_commit"),
         input_fn=input_fn,
         output_fn=output_fn,
-        default_yes=False,
-    )
+        non_interactive=non_interactive,
+    ) == "yes"
     push_after_init = False
     if create_initial_commit and mode != "local-only":
-        push_after_init = prompt_confirmation(
-            "Git",
-            "Push the initial commit after setup?",
+        push_after_init = choose_or_prompt(
+            cmp.build_confirmation_question(
+                "push_after_init",
+                "Git",
+                "Push the initial commit after setup?",
+            ),
+            prefilled=prefilled.get("push_after_init"),
             input_fn=input_fn,
             output_fn=output_fn,
-            default_yes=False,
-        )
+            non_interactive=non_interactive,
+        ) == "yes"
 
     approvals = cmp.collect_approvals()
     approvals["create_github_repo"] = "confirmed" if mode != "local-only" else "declined"

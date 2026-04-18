@@ -445,7 +445,7 @@ class WizardFlowTests(unittest.TestCase):
                     "",   # default destination
                     "",   # default bundle id
                     "",   # default simulator
-                    "n",  # no initial commit
+                    "B",  # no initial commit
                 ]
             )
             template_dir = Path("/tmp/template")
@@ -471,6 +471,53 @@ class WizardFlowTests(unittest.TestCase):
             self.assertEqual(deps.last_approvals["create_initial_commit"], "declined")
             self.assertIn("Project created.", output.getvalue())
 
+    def test_run_wizard_non_interactive_local_only_uses_prefilled_state(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            template_dir = Path("/tmp/template")
+            deps = FakeWizardDependencies(template_dir)
+            output = io.StringIO()
+            cwd = Path(tmpdir)
+
+            code = wizard.run_wizard(
+                cwd=cwd,
+                repo_root=Path("/Users/star/Developer/zach-repo/Zach-Skills"),
+                input_fn=lambda _prompt: (_ for _ in ()).throw(AssertionError("input should not be called")),
+                output_stream=output,
+                dependencies=deps,
+                prefilled={
+                    "mode": "local-only",
+                    "template": "ios",
+                    "project_name": "NoPromptApp",
+                    "destination_path": str(cwd / "NoPromptApp"),
+                    "bundle_id": "com.example.nopromptapp",
+                    "ios_simulator_device": "iPhone 16",
+                    "create_initial_commit": False,
+                },
+                non_interactive=True,
+            )
+
+            self.assertEqual(code, 0)
+            self.assertEqual(deps.last_payload["project_name"], "NoPromptApp")
+            self.assertEqual(deps.last_payload["mode"], "local-only")
+
+    def test_run_wizard_non_interactive_requires_missing_values(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            template_dir = Path("/tmp/template")
+            deps = FakeWizardDependencies(template_dir)
+
+            with self.assertRaisesRegex(ValueError, "template"):
+                wizard.run_wizard(
+                    cwd=Path(tmpdir),
+                    repo_root=Path("/Users/star/Developer/zach-repo/Zach-Skills"),
+                    input_fn=lambda _prompt: "",
+                    output_stream=io.StringIO(),
+                    dependencies=deps,
+                    prefilled={
+                        "mode": "local-only",
+                    },
+                    non_interactive=True,
+                )
+
     def test_run_wizard_repo_exists_can_fallback_to_local_only(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             answers = iter(
@@ -485,7 +532,7 @@ class WizardFlowTests(unittest.TestCase):
                     "A",  # switch to local-only
                     "",   # default bundle id
                     "",   # default simulator
-                    "n",  # no initial commit
+                    "B",  # no initial commit
                 ]
             )
             template_dir = Path("/tmp/template")
@@ -520,11 +567,11 @@ class WizardFlowTests(unittest.TestCase):
                     "A",      # private
                     "",       # default bundle id
                     "",       # default simulator
-                    "y",      # create Tuist Cloud project
+                    "A",      # create Tuist Cloud project
                     "",       # default full handle
                     "A",      # bind existing
-                    "y",      # setup cache
-                    "n",      # no initial commit
+                    "A",      # setup cache
+                    "B",      # no initial commit
                 ]
             )
             template_dir = Path("/tmp/template")
