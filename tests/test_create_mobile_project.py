@@ -363,6 +363,8 @@ class WizardHelpersTests(unittest.TestCase):
         self.assertIsNotNone(wizard.validate_repo_name("Starter App"))
         self.assertIsNone(wizard.validate_bundle_id("com.example.app"))
         self.assertIsNotNone(wizard.validate_bundle_id("badbundle"))
+        self.assertIsNone(wizard.validate_full_handle("zach/starter"))
+        self.assertIsNotNone(wizard.validate_full_handle("badhandle"))
 
     def test_prompt_choice_rejects_blocked_option_then_accepts_available_one(self) -> None:
         question = bpm.build_mode_question(
@@ -395,6 +397,7 @@ class FakeWizardDependencies:
         self.last_approvals = None
         self.last_destination = None
         self.existing_repos: set[tuple[str, str]] = set()
+        self.existing_handles: set[str] = set()
 
     def detect_capabilities(self, _cwd: str | Path | None) -> list[bpm.CapabilityStatus]:
         return [
@@ -414,6 +417,9 @@ class FakeWizardDependencies:
 
     def github_repo_exists(self, owner: str, repo_name: str) -> bool:
         return (owner, repo_name) in self.existing_repos
+
+    def full_handle_exists(self, full_handle: str) -> bool:
+        return full_handle in self.existing_handles
 
     def run_initializer(self, payload):
         self.last_payload = payload
@@ -500,6 +506,47 @@ class WizardFlowTests(unittest.TestCase):
             self.assertEqual(deps.last_payload["mode"], "local-only")
             self.assertEqual(deps.last_approvals["create_github_repo"], "declined")
             self.assertIn("already exists on GitHub", output.getvalue())
+
+    def test_run_wizard_full_handle_exists_can_bind_existing(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            answers = iter(
+                [
+                    "C",      # github-and-tuist-cloud
+                    "A",      # ios
+                    "CloudApp",
+                    "",       # default destination
+                    "Zach677",
+                    "",       # default repo name
+                    "A",      # private
+                    "",       # default bundle id
+                    "",       # default simulator
+                    "y",      # create Tuist Cloud project
+                    "",       # default full handle
+                    "A",      # bind existing
+                    "y",      # setup cache
+                    "n",      # no initial commit
+                ]
+            )
+            template_dir = Path("/tmp/template")
+            deps = FakeWizardDependencies(template_dir)
+            deps.existing_handles.add("zach/cloudapp")
+            output = io.StringIO()
+            cwd = Path(tmpdir)
+
+            code = wizard.run_wizard(
+                cwd=cwd,
+                repo_root=Path("/Users/star/Developer/zach-repo/Zach-Skills"),
+                input_fn=lambda _prompt: next(answers),
+                output_stream=output,
+                dependencies=deps,
+            )
+
+            self.assertEqual(code, 0)
+            self.assertEqual(deps.last_payload["mode"], "github-and-tuist-cloud")
+            self.assertEqual(deps.last_payload["full_handle"], "zach/cloudapp")
+            self.assertFalse(deps.last_payload["setup_tuist_cloud"])
+            self.assertTrue(deps.last_payload["setup_tuist_cache"])
+            self.assertIn("already exists in Tuist Cloud", output.getvalue())
 
 
 class PayloadAndApprovalTests(unittest.TestCase):

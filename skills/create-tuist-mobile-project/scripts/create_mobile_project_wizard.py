@@ -43,6 +43,14 @@ class WizardDependencies:
         )
         return result.returncode == 0
 
+    def full_handle_exists(self, full_handle: str) -> bool:
+        result = subprocess.run(
+            ["zsh", "-lc", f"mise exec -- tuist project show {full_handle!s} >/dev/null 2>&1"],
+            capture_output=True,
+            text=True,
+        )
+        return result.returncode == 0
+
     def clone_template(self, template: str) -> tuple[Path, TemporaryDirectory | None]:
         override = self.ios_template_path if template == "ios" else self.ios_catalyst_template_path
         if override is not None:
@@ -111,6 +119,12 @@ def validate_repo_name(value: str) -> str | None:
 def validate_bundle_id(value: str) -> str | None:
     if not re.fullmatch(r"[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+", value):
         return "Bundle identifier should look like com.example.app."
+    return None
+
+
+def validate_full_handle(value: str) -> str | None:
+    if not re.fullmatch(r"[A-Za-z0-9-]+/[A-Za-z0-9-]+", value):
+        return "Full handle should look like account/project."
     return None
 
 
@@ -269,6 +283,7 @@ def run_wizard(
     repo_name = None
     visibility = None
     full_handle = None
+    bound_existing_full_handle = False
     create_tuist_cloud = False
     setup_tuist_cache = False
     tuist_owner = detect_tuist_cloud_owner(capabilities)
@@ -369,7 +384,29 @@ def run_wizard(
                 input_fn=input_fn,
                 output_fn=output_fn,
                 default=f"{suggested_owner}/{repo_name}",
+                validator=validate_full_handle,
             )
+            while dependencies.full_handle_exists(full_handle):
+                output_fn(f"`{full_handle}` already exists in Tuist Cloud.")
+                resolution = prompt_choice(
+                    cmp.build_full_handle_exists_resolution_question(full_handle),
+                    input_fn=input_fn,
+                    output_fn=output_fn,
+                )
+                if resolution == "bind-existing":
+                    create_tuist_cloud = False
+                    bound_existing_full_handle = True
+                    break
+                if resolution == "abort":
+                    output_fn("Aborted before writing files.")
+                    return 1
+                full_handle = prompt_text(
+                    "Tuist full handle",
+                    input_fn=input_fn,
+                    output_fn=output_fn,
+                    default=f"{suggested_owner}/{repo_name}",
+                    validator=validate_full_handle,
+                )
         setup_tuist_cache = prompt_confirmation(
             "Tuist Cache",
             "Run `tuist setup cache` after initialization?",
@@ -384,6 +421,28 @@ def run_wizard(
                 input_fn=input_fn,
                 output_fn=output_fn,
                 default=f"{suggested_owner}/{repo_name}",
+                validator=validate_full_handle,
+            )
+        while setup_tuist_cache and full_handle and dependencies.full_handle_exists(full_handle) and not bound_existing_full_handle:
+            output_fn(f"`{full_handle}` already exists in Tuist Cloud.")
+            resolution = prompt_choice(
+                cmp.build_full_handle_exists_resolution_question(full_handle),
+                input_fn=input_fn,
+                output_fn=output_fn,
+            )
+            if resolution == "bind-existing":
+                bound_existing_full_handle = True
+                break
+            if resolution == "abort":
+                output_fn("Aborted before writing files.")
+                return 1
+            suggested_owner = tuist_owner or owner or "local"
+            full_handle = prompt_text(
+                "Tuist full handle",
+                input_fn=input_fn,
+                output_fn=output_fn,
+                default=f"{suggested_owner}/{repo_name}",
+                validator=validate_full_handle,
             )
 
     create_initial_commit = prompt_confirmation(
