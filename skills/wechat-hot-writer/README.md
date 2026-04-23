@@ -8,7 +8,7 @@
 - stage WeChat draft delivery
 - record history and sync article stats
 
-It still defaults to a middle-aged / family-caregiver lane, but the current default is tighter than generic “public hot topics”: it prefers health reminders, family usefulness, anti-fraud and consumer避坑, plus silver-service or travel-benefit verification. It also supports an `EXTEND.md` preference layer so another user can swap the lane, fallback query, title templates, and style notes without editing the skill code.
+It still defaults to a middle-aged / family-caregiver lane, but the current default is tighter than generic “public hot topics”: it prefers health reminders, anti-fraud and personal-info safety, consumer避坑, plus silver-service, reservation, or travel-benefit verification. It also supports an `EXTEND.md` preference layer so another user can swap the lane, fallback query, title templates, and style notes without editing the skill code.
 
 ## Layout
 
@@ -73,14 +73,14 @@ Use `EXTEND.md` for non-secret account preferences only. Keep credentials out of
 
 Current built-in defaults:
 
-- `fallback_query`: `中老年 健康 睡眠 饮食 家庭 防骗 消费 出行 提醒`
-- `min_reader_relevance`: `0.42`
-- `max_risk`: `0.4`
+- `fallback_query`: `中老年 健康 睡眠 饮食 家庭 防骗 消费 出行 预约 提醒`
+- `min_reader_relevance`: `0.46`
+- `max_risk`: `0.35`
 
 Default headline bias:
 
-- `先别急着转发，先替家里人核对`
-- `别只把它当新闻，要说清普通家庭该注意什么`
+- `先把入口、条件、时间点说清楚`
+- `先写家里谁会受影响，再写怎么核对`
 - `尽量能被家里群一句话转述`
 
 ### 2. Secrets via `.env`

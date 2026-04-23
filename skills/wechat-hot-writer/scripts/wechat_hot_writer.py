@@ -172,6 +172,25 @@ SERVICE_BENEFIT_KEYWORDS = {
     "预约",
 }
 
+IDENTITY_SAFETY_KEYWORDS = {
+    "身份证",
+    "复印件",
+    "实名",
+    "实名制",
+    "人脸识别",
+    "刷脸",
+    "验证码",
+    "链接",
+    "二维码",
+    "客服",
+    "征信",
+    "账号",
+    "密码",
+    "官方",
+    "官方渠道",
+    "入口",
+}
+
 FAMILY_STORY_KEYWORDS = {
     "家庭",
     "父母",
@@ -206,6 +225,7 @@ READER_PRIORITY_KEYWORDS = (
     | PUBLIC_INTEREST_KEYWORDS
     | SERVICE_BENEFIT_KEYWORDS
     | FAMILY_STORY_KEYWORDS
+    | IDENTITY_SAFETY_KEYWORDS
 )
 
 SHAREABLE_KEYWORDS = {
@@ -231,6 +251,11 @@ SHAREABLE_KEYWORDS = {
     "优惠",
     "积分",
     "家里人",
+    "官方",
+    "预约",
+    "实名",
+    "入口",
+    "身份证",
 }
 
 GENERAL_RISK_KEYWORDS = {
@@ -304,9 +329,9 @@ REQUIRED_SECTIONS = [
 ]
 
 DEFAULT_TITLE_TEMPLATES = [
-    "看到「{title}」，先别急着转发，替家里人核对这几件事",
-    "别把「{title}」只当新闻，很多家庭真正要注意的是这几点",
-    "说到「{title}」，中老年读者更该看懂的是后面这一步",
+    "家里有老人会碰到「{title}」的，先把入口、条件和时间点看明白",
+    "「{title}」这种消息，最怕只看一半，普通家庭先核对这3件事",
+    "父母真碰上「{title}」，别慌，先看哪类人受影响、去哪核实",
 ]
 
 DEFAULT_STYLE_NOTES = [
@@ -318,13 +343,14 @@ DEFAULT_STYLE_NOTES = [
     "健康内容别写成诊断、治疗方案、神药推荐。",
     "优先把文章写成提醒、核对、清单、步骤，而不是空泛社会评论。",
     "涉及福利、出行、消费、办事服务时，只写普通人怎么核对资格、时间、入口，不做政策延伸解读。",
+    "涉及实名、预约、身份证、刷脸、验证码时，要先写风险点和官方核实路径。",
 ]
 
 DEFAULT_WRITER_PREFERENCES = {
     "lane": "中老年健康与银发生活",
-    "fallback_query": "中老年 健康 睡眠 饮食 家庭 防骗 消费 出行 提醒",
-    "min_reader_relevance": 0.42,
-    "max_risk": 0.4,
+    "fallback_query": "中老年 健康 睡眠 饮食 家庭 防骗 消费 出行 预约 提醒",
+    "min_reader_relevance": 0.46,
+    "max_risk": 0.35,
     "title_templates": DEFAULT_TITLE_TEMPLATES,
     "style_notes": DEFAULT_STYLE_NOTES,
 }
@@ -798,6 +824,7 @@ def estimate_reader_relevance(title: str, category: str) -> float:
     public_hits = keyword_hits(combined, PUBLIC_INTEREST_KEYWORDS)
     service_hits = keyword_hits(combined, SERVICE_BENEFIT_KEYWORDS)
     story_hits = keyword_hits(combined, FAMILY_STORY_KEYWORDS)
+    identity_hits = keyword_hits(combined, IDENTITY_SAFETY_KEYWORDS)
     ai_hits = keyword_hits(combined, AI_TOPIC_KEYWORDS)
     young_hits = keyword_hits(combined, YOUNG_CONTEXT_KEYWORDS)
     base = 0.12
@@ -806,12 +833,13 @@ def estimate_reader_relevance(title: str, category: str) -> float:
     base += min(family_hits, 3) * 0.06
     base += min(public_hits, 3) * 0.04
     base += min(service_hits, 3) * 0.06
-    base += min(story_hits, 2) * 0.04
+    base += min(story_hits, 1) * 0.02
+    base += min(identity_hits, 3) * 0.06
     if re.search(r"\d", title):
         base += 0.05
-    if any(keyword in title for keyword in ("提醒", "注意", "误区", "很多人", "家里", "父母", "老人", "清单", "核对")):
+    if any(keyword in title for keyword in ("提醒", "注意", "误区", "很多人", "家里", "父母", "老人", "清单", "核对", "预约", "实名", "入口")):
         base += 0.08
-    if any(keyword in title for keyword in ("回收", "价格", "清明", "扫墓", "祭扫", "优惠", "积分", "出行", "旅游")):
+    if any(keyword in title for keyword in ("回收", "价格", "清明", "扫墓", "祭扫", "优惠", "积分", "出行", "旅游", "身份证", "复印件", "刷脸")):
         base += 0.08
     if ai_hits > 0 and priority_hits == 0 and public_hits == 0:
         base -= 0.38
@@ -845,11 +873,12 @@ def estimate_shareability(title: str, category: str) -> float:
     base += min(keyword_hits(combined, SHAREABLE_KEYWORDS), 4) * 0.1
     base += min(keyword_hits(combined, FAMILY_KEYWORDS), 2) * 0.06
     base += min(keyword_hits(combined, SERVICE_BENEFIT_KEYWORDS), 3) * 0.05
+    base += min(keyword_hits(combined, IDENTITY_SAFETY_KEYWORDS), 3) * 0.04
     if re.search(r"\d", title):
         base += 0.05
-    if any(word in title for word in ["提醒", "注意", "小心", "误区", "很多人", "原来", "终于", "清单", "核对"]):
+    if any(word in title for word in ["提醒", "注意", "小心", "误区", "很多人", "原来", "终于", "清单", "核对", "预约", "实名"]):
         base += 0.1
-    if any(word in title for word in ["价格", "回收", "清明", "扫墓", "家里", "优惠", "积分", "出行"]):
+    if any(word in title for word in ["价格", "回收", "清明", "扫墓", "家里", "优惠", "积分", "出行", "身份证", "官方", "入口"]):
         base += 0.06
     if keyword_hits(combined, AI_TOPIC_KEYWORDS) > 0 and keyword_hits(combined, READER_PRIORITY_KEYWORDS) == 0:
         base -= 0.16
@@ -890,6 +919,10 @@ def build_angle_candidates(title: str) -> list[str]:
         candidates[0] = "先交代这条服务或优惠到底适用于谁，别让读者白高兴一场"
         candidates[1] = "把时间点、入口、核对条件写清楚，不要写成模糊政策解读"
         candidates[2] = "结尾给一份家里人能直接照着查的步骤清单"
+    elif any(keyword in title for keyword in IDENTITY_SAFETY_KEYWORDS):
+        candidates[0] = "先说清什么信息绝对别随手给，哪些场景最容易被人钻空子"
+        candidates[1] = "把官方渠道、核验入口和止损动作写实，不要只喊提高警惕"
+        candidates[2] = "结尾给一份家里人现在就能照着查的排查清单"
     elif any(keyword in title_lower for keyword in ["openai", "gpt", "claude", "gemini", "agent", "ai"]):
         candidates[0] = "只有当它和普通人的消费、食品、民生或家庭场景有明确关系时才保留"
         candidates[1] = "把技术热点翻译成大众能直接感知的生活影响"
@@ -1165,6 +1198,8 @@ def suggest_keywords_for_topic(topic: dict[str, Any]) -> list[str]:
     keywords = [title]
     if keyword_hits(combined, WELLNESS_KEYWORDS) > 0:
         keywords.extend(["中老年", "健康", "日常提醒", "家庭"])
+    elif keyword_hits(combined, IDENTITY_SAFETY_KEYWORDS) > 0:
+        keywords.extend(["家庭防骗", "个人信息安全", "官方核对", "父母"])
     elif keyword_hits(combined, SERVICE_BENEFIT_KEYWORDS) > 0:
         keywords.extend(["银发生活", "出行提醒", "福利核对", "家庭"])
     elif keyword_hits(combined, FAMILY_KEYWORDS) > 0:
