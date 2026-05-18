@@ -38,6 +38,8 @@ Optional but useful:
 - Headline can carry a judgment, but the opening paragraph must anchor it in a specific person, scene, food, habit, time, or overheard quote — not an abstract statement about "the season" or "these days"
 - When the topic is service / discount / travel / welfare, the title should imply `核对/提醒/步骤` in concrete words, not macro commentary
 - When the topic is reservation / real-name / identity / privacy, the title should imply `别乱填 / 先核实 / 去哪查 / 哪类人受影响`, not just “提高警惕”
+- When the topic is rumor / fake notice / new rule, the title should imply `先核来源 / 哪些别转 / 官方怎么说 / 家里群怎么提醒`, not repeat the rumor as clickbait
+- When the topic is pension / social-security / allowance certification, the title should imply `谁要认证 / 什么时候办 / 去哪办 / 停发边界`, not broad policy interpretation
 
 ## Body skeleton
 
@@ -94,7 +96,9 @@ Before treating a draft as good enough, run these quick tests:
 - `有用而不吓人`: does the piece give action and boundary, instead of just制造焦虑
 - `健康边界测试`: if this is a wellness article, is it clearly not pretending to diagnose or prescribe
 - `服务核对测试`: if this is a benefit or service piece, does it clearly tell the reader who qualifies, when it applies, and where to verify
+- `辟谣核对测试`: if this is a rumor or fake-notice piece, does it name the source status, official clarification path, and what not to forward
 - `预约实名测试`: if this is a reservation or official-service piece, does it tell the reader whether real-name verification, ID, or timing matters
+- `认证提醒测试`: if this is a pension, social-security, or allowance piece, does it say who must actively certify, when benefits may pause, and how family can help verify safely
 - `信息止损测试`: if this is a privacy or fraud piece, does it say what information not to hand over, how to verify the official channel, and what to do first after an abnormality is found
 
 ## HTML rules

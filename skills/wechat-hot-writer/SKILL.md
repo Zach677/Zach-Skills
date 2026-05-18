@@ -6,7 +6,7 @@ description: Use when the user wants WeChat public account topic discovery, arti
 # WeChat Hot Writer
 
 Use this skill for the full `find topic -> write article -> stage WeChat draft` loop.
-Default lane: `中老年健康与银发生活`, with practical sub-lanes for `健康提醒`, `防骗避坑`, `个人信息/支付安全`, and `银发服务/出行核对`; draft-first, human final review.
+Default lane: `中老年健康与银发生活`, with practical sub-lanes for `健康提醒`, `防骗避坑`, `个人信息/支付安全`, `朋友圈辟谣`, and `银发服务/出行/认证核对`; draft-first, human final review.
 When `EXTEND.md` exists, read it first and let it override lane, fallback query, title templates, style notes, and risk thresholds.
 
 ## Preferences
@@ -48,6 +48,7 @@ Commands below assume the working directory is this skill directory.
    - `实用型`: 饮食、睡眠、走路、家庭照护、季节建议
    - `服务/消费型`: 防骗、回收、价格、福利、出行、办事提醒
    - `信息安全型`: 身份证、复印件、刷脸、验证码、陌生链接、官方入口核实
+   - `辟谣核对型`: 朋友圈假消息、AI造谣、假通知、新规传闻、官方通报
    - `家庭观察型`: 只在能落到具体家庭动作或边界提醒时保留
 4. Create an article scaffold.
    - Command: `python3 scripts/wechat_hot_writer.py write-article --topic out/topics.json --topic-index 0 --scaffold out/draft.json`
@@ -64,7 +65,9 @@ Commands below assume the working directory is this skill directory.
    - Can the target reader understand the title without niche context?
    - Can the main point be retold in one sentence inside a family group chat?
    - If this is a service, benefit, or consumer piece, did it clearly say `适用于谁 / 什么时候 / 去哪核对 / 不要误会什么`?
+   - If this is a rumor, fake-notice, or new-rule piece, did it clearly say `原消息从哪来 / 官方说法是什么 / 哪些说法别转发 / 去哪核实`?
    - If this is a reservation,实名, or official-service piece, did it clearly say `入口 / 条件 / 时间点 / 是否需要身份证或实名验证`?
+   - If this is a pension, social-security, or allowance-certification piece, did it clearly say `谁需要主动认证 / 何时可能停发 / 线上线下入口 / 家属怎么帮忙核对`?
    - If this is an identity, payment, or privacy piece, did it clearly say `什么不能给 / 去哪核实 / 发现异常先做什么`?
    - If the piece touches health, does it stay in general-information territory?
    - Did the article avoid fake urgency, miracle claims, and hard diagnosis language?
@@ -89,13 +92,14 @@ Commands below assume the working directory is this skill directory.
 ## Guardrails
 
 - Default to readers aged roughly 45+ and their family caregivers unless `EXTEND.md` clearly says otherwise.
-- Prefer health, wellness, sleep, diet, walking, joints, blood sugar, digestion, seasonal care, silver-life, anti-scam reminders, personal-info safety, service/welfare verification, reservation reminders, travel or benefit reminders, and public-interest lifestyle topics that clearly map back to ordinary family decisions.
+- Prefer health, wellness, sleep, diet, walking, joints, blood sugar, digestion, seasonal care and weather reminders, silver-life, anti-scam reminders, personal-info safety, rumor/fake-notice verification, service/welfare verification, pension or allowance certification reminders, reservation reminders, travel or benefit reminders, and public-interest lifestyle topics that clearly map back to ordinary family decisions.
 - AI topics are allowed only when attached to a mainstream livelihood, food, consumer, or social hotspot with obvious mass interest.
 - Filter or heavily down-rank finance, diagnosis-heavy medical, legal, education, politics, and certification-sensitive topics unless the user explicitly opts in.
 - Filter or heavily down-rank pure celebrity gossip, youth-internet slang topics, entertainment `塌房` chatter, and abstract social commentary with no concrete family action.
 - Filter or heavily down-rank人物/情感/社会观察选题 when they cannot be rewritten into a concrete `提醒 / 核对 / 止损 / 日常动作`.
 - For health and wellness content, stay at the level of general information and daily habits.
 - For service, discount, ticketing, or welfare topics, stay at the level of official facts, eligibility checks, timing, and action steps; do not drift into policy interpretation.
+- For rumor, fake-notice, or new-rule topics, stay at the level of source checking, official clarification, affected scope, and family-group forwarding advice; do not amplify the rumor as if it were fact.
 - For identity, payment, or privacy topics, stay at the level of official channels, minimum-necessary information, and stop-loss actions; do not invent platform rules.
 - Do not click final publish for personal or unverified accounts. Stop at draft or review-ready state.
 - For browser-backed work, use `opencli`, not Playwright.

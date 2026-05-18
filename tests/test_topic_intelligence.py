@@ -217,6 +217,40 @@ class TopicPreferenceHeuristicsTests(unittest.TestCase):
 
         self.assertGreaterEqual(score, 0.6)
 
+    def test_rumor_check_topics_get_strong_reader_fit(self) -> None:
+        score = wechat_hot_writer.estimate_reader_relevance(
+            title="朋友圈又传养老金新规，家里老人先核官方通知再转发",
+            category="辟谣提醒",
+        )
+
+        self.assertGreaterEqual(score, 0.6)
+
+    def test_pension_certification_topics_get_strong_reader_fit(self) -> None:
+        score = wechat_hot_writer.estimate_reader_relevance(
+            title="养老金资格认证别拖到停发，带父母先看入口和时间点",
+            category="社保服务",
+        )
+
+        self.assertGreaterEqual(score, 0.6)
+
+    def test_private_group_wellness_scam_topics_get_strong_reader_fit(self) -> None:
+        score = wechat_hot_writer.estimate_reader_relevance(
+            title="免费养生课把老人拉进微信群，家里人先核实再转账",
+            category="防骗提醒",
+        )
+
+        self.assertGreaterEqual(score, 0.6)
+
+    def test_rumor_topics_get_source_check_angles(self) -> None:
+        angles = wechat_hot_writer.build_angle_candidates("朋友圈又传养老金新规，家里老人先核官方通知再转发")
+
+        self.assertIn("官方说法", angles[0])
+
+    def test_certification_topics_keep_service_angles(self) -> None:
+        angles = wechat_hot_writer.build_angle_candidates("养老金资格认证别拖到停发，带父母先看入口和时间点")
+
+        self.assertIn("适用于谁", angles[0])
+
     def test_service_benefit_topics_get_specific_default_keywords(self) -> None:
         keywords = wechat_hot_writer.suggest_keywords_for_topic(
             {

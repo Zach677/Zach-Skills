@@ -92,6 +92,13 @@ WELLNESS_KEYWORDS = {
     "秋天",
     "冬天",
     "保健",
+    "高温",
+    "降温",
+    "暴雨",
+    "防暑",
+    "空调",
+    "节气",
+    "换季",
 }
 
 SILVER_LIFE_KEYWORDS = {
@@ -149,6 +156,14 @@ PUBLIC_INTEREST_KEYWORDS = {
     "祭扫",
     "日常",
     "生活",
+    "辟谣",
+    "谣言",
+    "假消息",
+    "朋友圈",
+    "官方通报",
+    "官方提醒",
+    "新规",
+    "通知",
 }
 
 SERVICE_BENEFIT_KEYWORDS = {
@@ -170,6 +185,13 @@ SERVICE_BENEFIT_KEYWORDS = {
     "适老",
     "登记",
     "预约",
+    "认证",
+    "资格",
+    "社保",
+    "养老金",
+    "高龄津贴",
+    "待遇",
+    "停发",
 }
 
 IDENTITY_SAFETY_KEYWORDS = {
@@ -189,6 +211,11 @@ IDENTITY_SAFETY_KEYWORDS = {
     "官方",
     "官方渠道",
     "入口",
+    "私域",
+    "微信群",
+    "直播间",
+    "陌生群",
+    "转账",
 }
 
 FAMILY_STORY_KEYWORDS = {
@@ -342,13 +369,16 @@ DEFAULT_STYLE_NOTES = [
     "不要写成热点复述稿，也不要写成吓人的伪养生文。",
     "健康内容别写成诊断、治疗方案、神药推荐。",
     "优先把文章写成提醒、核对、清单、步骤，而不是空泛社会评论。",
+    "遇到朋友圈谣言、假通知、新规传闻时，先写清官方来源、适用范围和普通人该不该转发。",
     "涉及福利、出行、消费、办事服务时，只写普通人怎么核对资格、时间、入口，不做政策延伸解读。",
+    "涉及养老金、社保待遇、高龄津贴等认证提醒时，要写清是否会停发、谁需要主动认证、线上线下核验入口。",
     "涉及实名、预约、身份证、刷脸、验证码时，要先写风险点和官方核实路径。",
+    "涉及私域直播、微信群养生课、免费礼品引流时，要写清不要进陌生群、不要转账、保留凭证和找官方/家人核对。",
 ]
 
 DEFAULT_WRITER_PREFERENCES = {
     "lane": "中老年健康与银发生活",
-    "fallback_query": "中老年 健康 睡眠 饮食 家庭 防骗 消费 出行 预约 提醒",
+    "fallback_query": "中老年 健康 睡眠 饮食 家庭 防骗 消费 出行 预约 认证 辟谣 提醒",
     "min_reader_relevance": 0.46,
     "max_risk": 0.35,
     "title_templates": DEFAULT_TITLE_TEMPLATES,
@@ -837,9 +867,9 @@ def estimate_reader_relevance(title: str, category: str) -> float:
     base += min(identity_hits, 3) * 0.06
     if re.search(r"\d", title):
         base += 0.05
-    if any(keyword in title for keyword in ("提醒", "注意", "误区", "很多人", "家里", "父母", "老人", "清单", "核对", "预约", "实名", "入口")):
+    if any(keyword in title for keyword in ("提醒", "注意", "误区", "很多人", "家里", "父母", "老人", "清单", "核对", "预约", "实名", "入口", "辟谣", "官方", "认证")):
         base += 0.08
-    if any(keyword in title for keyword in ("回收", "价格", "清明", "扫墓", "祭扫", "优惠", "积分", "出行", "旅游", "身份证", "复印件", "刷脸")):
+    if any(keyword in title for keyword in ("回收", "价格", "清明", "扫墓", "祭扫", "优惠", "积分", "出行", "旅游", "身份证", "复印件", "刷脸", "养老金", "社保", "高龄津贴", "微信群")):
         base += 0.08
     if ai_hits > 0 and priority_hits == 0 and public_hits == 0:
         base -= 0.38
@@ -876,9 +906,9 @@ def estimate_shareability(title: str, category: str) -> float:
     base += min(keyword_hits(combined, IDENTITY_SAFETY_KEYWORDS), 3) * 0.04
     if re.search(r"\d", title):
         base += 0.05
-    if any(word in title for word in ["提醒", "注意", "小心", "误区", "很多人", "原来", "终于", "清单", "核对", "预约", "实名"]):
+    if any(word in title for word in ["提醒", "注意", "小心", "误区", "很多人", "原来", "终于", "清单", "核对", "预约", "实名", "辟谣", "官方", "认证"]):
         base += 0.1
-    if any(word in title for word in ["价格", "回收", "清明", "扫墓", "家里", "优惠", "积分", "出行", "身份证", "官方", "入口"]):
+    if any(word in title for word in ["价格", "回收", "清明", "扫墓", "家里", "优惠", "积分", "出行", "身份证", "官方", "入口", "养老金", "社保", "高龄津贴", "微信群"]):
         base += 0.06
     if keyword_hits(combined, AI_TOPIC_KEYWORDS) > 0 and keyword_hits(combined, READER_PRIORITY_KEYWORDS) == 0:
         base -= 0.16
@@ -911,10 +941,10 @@ def build_angle_candidates(title: str) -> list[str]:
         candidates[0] = "先分清这件事属于日常提醒、习惯调整，还是已经超出自我管理边界"
         candidates[1] = "把常见误区、过度焦虑、和真正靠谱的做法分开说"
         candidates[2] = "结尾要交代哪些情况别硬扛，应该尽快求助专业人士"
-    elif any(keyword in title for keyword in FAMILY_KEYWORDS | {"被骗", "防骗", "骗局"}):
-        candidates[0] = "先说这事在家庭场景里最容易发生在哪里"
-        candidates[1] = "把最容易忽视的预警信号讲清楚，别写成纯情绪文"
-        candidates[2] = "给出一份家里人今天就能照着做的提醒清单"
+    elif any(keyword in title for keyword in {"辟谣", "谣言", "假消息", "官方通报", "官方提醒", "朋友圈"}):
+        candidates[0] = "先说这条消息从哪里来，哪些部分已经有官方说法"
+        candidates[1] = "把容易被误转的说法拆开，提醒读者先核来源再转发"
+        candidates[2] = "结尾给家里群能照着做的核验动作，而不是只说别信谣"
     elif any(keyword in title for keyword in SERVICE_BENEFIT_KEYWORDS):
         candidates[0] = "先交代这条服务或优惠到底适用于谁，别让读者白高兴一场"
         candidates[1] = "把时间点、入口、核对条件写清楚，不要写成模糊政策解读"
@@ -923,6 +953,10 @@ def build_angle_candidates(title: str) -> list[str]:
         candidates[0] = "先说清什么信息绝对别随手给，哪些场景最容易被人钻空子"
         candidates[1] = "把官方渠道、核验入口和止损动作写实，不要只喊提高警惕"
         candidates[2] = "结尾给一份家里人现在就能照着查的排查清单"
+    elif any(keyword in title for keyword in FAMILY_KEYWORDS | {"被骗", "防骗", "骗局"}):
+        candidates[0] = "先说这事在家庭场景里最容易发生在哪里"
+        candidates[1] = "把最容易忽视的预警信号讲清楚，别写成纯情绪文"
+        candidates[2] = "给出一份家里人今天就能照着做的提醒清单"
     elif any(keyword in title_lower for keyword in ["openai", "gpt", "claude", "gemini", "agent", "ai"]):
         candidates[0] = "只有当它和普通人的消费、食品、民生或家庭场景有明确关系时才保留"
         candidates[1] = "把技术热点翻译成大众能直接感知的生活影响"
