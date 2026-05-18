@@ -25,41 +25,67 @@ Optional but useful:
 
 ## Titles
 
-- Exactly 3
-- Useful, specific, not clickbait sludge
-- Default style:
-  - `从「X」说起，很多家庭都容易忽视这件事`
-  - `看到「X」，更该提醒家里人的是这几个细节`
-  - `别只盯着「X」，真正要紧的是后面这一步`
-- Headline can carry judgment, but body should immediately anchor that judgment in a concrete person, family scene, daily habit, food item, or public event
+- Exactly 3, each with a different angle — do NOT submit 3 variations of the same template
+- One of the three should read like a line someone might actually say out loud, not a headline
+- Open with a concrete scene, sensation, number, time, or quote when possible — not with 「X」 placeholders
+- Avoid these templated patterns (they scream AI-voice):
+  - `看到「X」，先别急着…`
+  - `说到「X」，更该看懂的是…`
+  - `别把「X」只当新闻…`
+  - `记住 "X" 原则，X 更 X`
+  - Any title with a colon splitting "场景:建议" that starts with abstract weather/season words
+- Prefer concrete over judgmental: `中午热得能穿短袖，晚上风一起还是凉` beats `春天穿衣要注意`
+- Headline can carry a judgment, but the opening paragraph must anchor it in a specific person, scene, food, habit, time, or overheard quote — not an abstract statement about "the season" or "these days"
+- When the topic is service / discount / travel / welfare, the title should imply `核对/提醒/步骤` in concrete words, not macro commentary
+- When the topic is reservation / real-name / identity / privacy, the title should imply `别乱填 / 先核实 / 去哪查 / 哪类人受影响`, not just “提高警惕”
+- When the topic is rumor / fake notice / new rule, the title should imply `先核来源 / 哪些别转 / 官方怎么说 / 家里群怎么提醒`, not repeat the rumor as clickbait
+- When the topic is pension / social-security / allowance certification, the title should imply `谁要认证 / 什么时候办 / 去哪办 / 停发边界`, not broad policy interpretation
 
 ## Body skeleton
 
-Use these exact section headings in the markdown scaffold:
+There is no fixed 6-section template. The scaffold generator may still emit default headings as a starting point, but the writer MUST rework them to fit the piece.
 
-1. `## 热点钩子`
-2. `## 这事和谁最相关`
-3. `## 关键事实`
-4. `## 常见误区或案例`
-5. `## 日常怎么做`
-6. `## 最后提醒`
+Rules for the final shape:
 
-The validator expects those headings unless the user explicitly changes the structure.
+- 3 to 6 body sections, not always 6
+- Section titles should be content, not category labels — write `脱衣服这件事，别只看中午` instead of `## 常见误区或案例`; write `天一暖就想减药，这事真不能自己拿主意` instead of `## 关键事实`
+- Avoid numbered-count titles like `4 个坑`、`3 个信号`、`5 件事` unless the number is load-bearing (e.g. a real checklist of 3 items). They make the piece feel like a listicle generated from a template.
+- Vary section length on purpose. If every section opens with a one-line intro, then a bullet list, then a bolded takeaway — the reader feels the template. Break the rhythm: some sections can be 2 paragraphs with no list at all.
+- End with a short closing note. Don't literally title it `## 最后一句` or `## 最后提醒` every time — `## 写在最后`, `## 最后说一句`, or even no heading (just a horizontal rule) are fine.
 
-## Anti-Slop Pass
+## Anti-AI-Voice Pass
 
-Before packaging, fix these:
+Before packaging, hunt these tells and fix them:
 
-- Delete empty transition filler like “值得注意的是”“不难发现”
-- Replace abstract nouns with concrete people, foods, habits, family scenes, or actions
-- Every non-obvious claim should map to a fact item or source URL
-- Keep the tone restrained, precise, and useful
-- Avoid obvious internet phrasing like “打起来了”“值钱”“热闹”“围观”
-- Avoid pseudo-health fear selling, miracle claims, and fake authority voice
-- Prefer useful explanation over performance, and calm reminders over hype
-- Open with a concrete setup first, then move to the larger claim
-- Prefer short, clean paragraphs or flat lists over dramatic transitions
-- When the topic touches health, keep it at general-information level and clearly mark any “don’t拖、该就医”的边界
+**Rhythm tells**
+- The `不是 X，而是 Y` construction can appear at most twice in the whole article. AI loves stacking it 5+ times; humans don't.
+- Same for `不仅仅是 X，更是 Y`, `表面上 X，其实 Y`, `看似 X，实则 Y` — one of each per article, max.
+- Don't bold a "金句" at the end of every section. Bold sparingly — only when the line really is the takeaway.
+- Don't break every 1–2 sentences into a new line for dramatic effect. Use normal paragraphs. Line breaks should mark a real beat, not pace a reveal.
+
+**Voice tells**
+- Cut faux-oral phrases that try too hard: `说白了`、`这事真别自己拍板`、`话说回来`、`一句话` (unless it genuinely is one line). Using them once is fine; stacking them reads fake.
+- Cut empty transitions: `值得注意的是`、`不难发现`、`由此可见`、`综上所述`.
+- Cut internet voice: `打起来了`、`值钱`、`热闹`、`围观`、`塌房`、`破防`.
+- Cut fake authority: `医生都说`、`专家一致认为`、`所有人都应该`. Prefer `很多医生会提` / `有些医生的建议是` / `一般建议是`.
+
+**Opening**
+- Do NOT open with `这几天…`、`最近…`、`最近这段时间…` followed by an abstract claim about weather, trends, or society. That's the #1 AI-tell opening.
+- Prefer one of these openings:
+  - A small scene with a real person (family member, neighbor, a reader, yourself)
+  - A specific number, time, or overheard quote
+  - A direct statement of the stake for the reader (`家里有老人在吃降压药的，这几天真的要看一眼`)
+- The first concrete noun in the article should appear before the 3rd sentence.
+
+**Structure**
+- Every non-obvious claim maps to a fact item or source URL.
+- When the topic touches health, stay at general-information level. Clearly mark the "别拖、该就医" boundary, but don't manufacture urgency.
+- No miracle claims, no fear-selling, no hard diagnosis language.
+
+**Human voice markers (good to have, not required)**
+- A first-person detail (`我妈`、`我爸`、`我自己家里`、`我那天`) once or twice, if genuine to the piece
+- One admission of nuance or "我理解" before pushing back on a common assumption
+- Concrete sensory detail (a time of day, a body part, a food, a neighborhood scene) at least once per section
 
 ## Reader Fit Checks
 
@@ -69,6 +95,11 @@ Before treating a draft as good enough, run these quick tests:
 - `群聊转述测试`: can the core point be retold in one calm sentence inside a family group
 - `有用而不吓人`: does the piece give action and boundary, instead of just制造焦虑
 - `健康边界测试`: if this is a wellness article, is it clearly not pretending to diagnose or prescribe
+- `服务核对测试`: if this is a benefit or service piece, does it clearly tell the reader who qualifies, when it applies, and where to verify
+- `辟谣核对测试`: if this is a rumor or fake-notice piece, does it name the source status, official clarification path, and what not to forward
+- `预约实名测试`: if this is a reservation or official-service piece, does it tell the reader whether real-name verification, ID, or timing matters
+- `认证提醒测试`: if this is a pension, social-security, or allowance piece, does it say who must actively certify, when benefits may pause, and how family can help verify safely
+- `信息止损测试`: if this is a privacy or fraud piece, does it say what information not to hand over, how to verify the official channel, and what to do first after an abnormality is found
 
 ## HTML rules
 

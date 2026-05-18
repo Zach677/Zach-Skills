@@ -182,10 +182,14 @@ class TopicEnrichmentTests(unittest.TestCase):
 
 class FreshnessParsingTests(unittest.TestCase):
     def test_normalize_freshness_accepts_iso_datetime(self) -> None:
+        fake_now = dt.datetime(2026, 3, 27, 14, 0, tzinfo=dt.timezone(dt.timedelta(hours=8)))
+
         class FixedDateTime(dt.datetime):
             @classmethod
             def now(cls, tz=None):  # type: ignore[override]
-                return cls(2026, 3, 27, 14, 0, tzinfo=tz or dt.timezone.utc)
+                if tz is None:
+                    return fake_now.replace(tzinfo=None)
+                return fake_now.astimezone(tz)
 
         with mock.patch.object(wechat_hot_writer.dt, "datetime", FixedDateTime):
             freshness = wechat_hot_writer.normalize_freshness(
@@ -194,6 +198,78 @@ class FreshnessParsingTests(unittest.TestCase):
             )
 
         self.assertEqual(freshness, 1.0)
+
+
+class TopicPreferenceHeuristicsTests(unittest.TestCase):
+    def test_service_benefit_topics_get_strong_reader_fit(self) -> None:
+        score = wechat_hot_writer.estimate_reader_relevance(
+            title="60岁以上坐火车可享15倍积分，带父母出行前先核对这几件事",
+            category="生活服务",
+        )
+
+        self.assertGreaterEqual(score, 0.6)
+
+    def test_identity_safety_topics_get_strong_reader_fit(self) -> None:
+        score = wechat_hot_writer.estimate_reader_relevance(
+            title="身份证复印件别乱发，家里老人办事前先看清这几个风险点",
+            category="生活提醒",
+        )
+
+        self.assertGreaterEqual(score, 0.6)
+
+    def test_rumor_check_topics_get_strong_reader_fit(self) -> None:
+        score = wechat_hot_writer.estimate_reader_relevance(
+            title="朋友圈又传养老金新规，家里老人先核官方通知再转发",
+            category="辟谣提醒",
+        )
+
+        self.assertGreaterEqual(score, 0.6)
+
+    def test_pension_certification_topics_get_strong_reader_fit(self) -> None:
+        score = wechat_hot_writer.estimate_reader_relevance(
+            title="养老金资格认证别拖到停发，带父母先看入口和时间点",
+            category="社保服务",
+        )
+
+        self.assertGreaterEqual(score, 0.6)
+
+    def test_private_group_wellness_scam_topics_get_strong_reader_fit(self) -> None:
+        score = wechat_hot_writer.estimate_reader_relevance(
+            title="免费养生课把老人拉进微信群，家里人先核实再转账",
+            category="防骗提醒",
+        )
+
+        self.assertGreaterEqual(score, 0.6)
+
+    def test_rumor_topics_get_source_check_angles(self) -> None:
+        angles = wechat_hot_writer.build_angle_candidates("朋友圈又传养老金新规，家里老人先核官方通知再转发")
+
+        self.assertIn("官方说法", angles[0])
+
+    def test_certification_topics_keep_service_angles(self) -> None:
+        angles = wechat_hot_writer.build_angle_candidates("养老金资格认证别拖到停发，带父母先看入口和时间点")
+
+        self.assertIn("适用于谁", angles[0])
+
+    def test_service_benefit_topics_get_specific_default_keywords(self) -> None:
+        keywords = wechat_hot_writer.suggest_keywords_for_topic(
+            {
+                "title": "60岁以上坐火车可享15倍积分，带父母出行前先核对这几件事",
+                "category": "生活服务",
+            }
+        )
+
+        self.assertEqual(keywords[1:], ["银发生活", "出行提醒", "福利核对", "家庭"])
+
+    def test_identity_safety_topics_get_specific_default_keywords(self) -> None:
+        keywords = wechat_hot_writer.suggest_keywords_for_topic(
+            {
+                "title": "身份证复印件别乱发，家里老人办事前先看清这几个风险点",
+                "category": "生活提醒",
+            }
+        )
+
+        self.assertEqual(keywords[1:], ["家庭防骗", "个人信息安全", "官方核对", "父母"])
 
 
 class ExtendConfigTests(unittest.TestCase):
@@ -291,7 +367,7 @@ class ExtendConfigTests(unittest.TestCase):
             [
                 "看到「旧手机回收又起风波」，普通家庭最该先核对这件事",
                 "别被「旧手机回收又起风波」带偏，先把这一步看明白",
-                "从「旧手机回收又起风波」说起，很多家庭都容易忽视这件事",
+                "家里有老人会碰到「旧手机回收又起风波」的，先把入口、条件和时间点看明白",
             ],
         )
 
