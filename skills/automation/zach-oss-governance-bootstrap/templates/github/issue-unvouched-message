@@ -1,0 +1,7 @@
+Hi @{author}, thanks for your interest in {{PROJECT_NAME}}.
+
+Non-maintainers are not allowed to create issues directly in this repository. Please open an Issue Triage or Feature Request discussion first so the request can be clarified before it becomes actionable work.
+
+For details, read https://github.com/{{OWNER}}/{{REPO}}/blob/{{DEFAULT_BRANCH}}/CONTRIBUTING.md.
+
+This issue will be closed automatically.

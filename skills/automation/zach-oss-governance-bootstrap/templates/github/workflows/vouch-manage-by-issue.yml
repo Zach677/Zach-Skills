@@ -1,0 +1,39 @@
+"on":
+  issue_comment:
+    types: [created]
+
+name: "Vouch - Manage by Issue"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vouch-manage
+  cancel-in-progress: false
+
+jobs:
+  manage:
+    runs-on: "{{RUNNER_LABEL}}"
+    steps:
+      - uses: "actions/create-github-app-token@{{CREATE_GITHUB_APP_TOKEN_REF}}"
+        id: app-token
+        with:
+          app-id: ${{ secrets.VOUCH_APP_ID }}
+          private-key: ${{ secrets.VOUCH_APP_PRIVATE_KEY }}
+
+      - uses: "actions/checkout@{{CHECKOUT_ACTION_REF}}"
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+
+      - uses: "mitchellh/vouch/action/manage-by-issue@{{VOUCH_ACTION_REF}}"
+        with:
+          repo: ${{ github.repository }}
+          issue-id: ${{ github.event.issue.number }}
+          comment-id: ${{ github.event.comment.id }}
+          vouch-keyword: "!vouch"
+          denounce-keyword: "!denounce"
+          unvouch-keyword: "!unvouch"
+          pull-request: "true"
+          merge-immediately: "true"
+        env:
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}

@@ -39,6 +39,10 @@ remain disabled.
   require Code Owner review.
 - GitHub App slug/name for Vouch, for example `modern-vouch`.
 - Zach's GitHub login for ruleset bypass, usually `Zach677`.
+- Runner label for GitHub Actions workflows, usually `ubuntu-latest`
+  unless the repo uses custom runners.
+- Action refs for `actions/create-github-app-token`, `actions/checkout`,
+  and `mitchellh/vouch/action`. Prefer pinned tags or SHAs.
 
 ## Files provided
 
@@ -48,6 +52,10 @@ remain disabled.
   permissions and secret names.
 - `references/vouch-app-manifest.template.json` is a manifest starting
   point for browser-based GitHub App creation.
+- `templates/docs/` contains reusable `CONTRIBUTING.md`,
+  `AI_POLICY.md`, `HACKING.md`, and `AGENTS.md` templates.
+- `templates/github/` contains reusable Vouch discussion, vouch list,
+  message, and workflow templates for `.github/`.
 
 ## Workflow
 
@@ -78,40 +86,58 @@ git -C /Users/star/Developer/other-repo/ghostty rev-parse HEAD origin/main
 
 ## [2] Add Ghostty-style contribution files
 
-Create or update:
+Copy and adapt the provided templates instead of recreating these files from
+scratch:
 
-- `CONTRIBUTING.md`: critical rule, AI usage, first-time contributor
+- `templates/docs/CONTRIBUTING.md` -> `CONTRIBUTING.md`: critical rule,
+  AI usage, first-time contributor
   Vouch Request, denouncement system, quick guide, discussion-first
   issue pattern, PRs implement accepted issues.
-- `AI_POLICY.md`: adapt Ghostty's policy by changing project names only
-  unless Zach explicitly asks for a stricter or looser policy.
-- `HACKING.md`: keep as a placeholder if the repo already centralizes
-  development rules in `AGENTS.md` or another agent guide.
-- `AGENTS.md`: document that contribution workflow changes must keep
-  `CONTRIBUTING.md`, `AI_POLICY.md`, `HACKING.md`, and `.github/`
-  aligned.
+- `templates/docs/AI_POLICY.md` -> `AI_POLICY.md`: keep the
+  human-accountable AI policy shape unless Zach explicitly asks for a
+  stricter or looser policy.
+- `templates/docs/HACKING.md` -> `HACKING.md`: keep as a skeletal
+  placeholder when project-specific development instructions are not ready.
+- `templates/docs/AGENTS.md` -> `AGENTS.md`: include the contribution
+  workflow section that keeps `CONTRIBUTING.md`, `AI_POLICY.md`,
+  `HACKING.md`, and `.github/` aligned.
+
+Replace placeholders such as `{{PROJECT_NAME}}`, `{{OWNER}}`, `{{REPO}}`,
+`{{DEFAULT_BRANCH}}`, and discussion category slugs before committing.
 
 For template repos, comment out translation-specific guidance rather
 than deleting the idea entirely.
 
 ## [3] Add Vouch repository files and workflows
 
-Add:
+Copy and adapt the provided Vouch templates:
 
-- `.github/DISCUSSION_TEMPLATE/vouch-request.yml`
-- `.github/VOUCHED.td`
-- `.github/issue-unvouched-message`
-- `.github/workflows/vouch-check-issue.yml`
-- `.github/workflows/vouch-check-pr.yml`
-- `.github/workflows/vouch-manage-by-discussion.yml`
-- `.github/workflows/vouch-manage-by-issue.yml`
+- `templates/github/DISCUSSION_TEMPLATE/vouch-request.yml` ->
+  `.github/DISCUSSION_TEMPLATE/vouch-request.yml`
+- `templates/github/VOUCHED.td` -> `.github/VOUCHED.td`
+- `templates/github/issue-unvouched-message` ->
+  `.github/issue-unvouched-message`
+- `templates/github/workflows/vouch-check-issue.yml` ->
+  `.github/workflows/vouch-check-issue.yml`
+- `templates/github/workflows/vouch-check-pr.yml` ->
+  `.github/workflows/vouch-check-pr.yml`
+- `templates/github/workflows/vouch-manage-by-discussion.yml` ->
+  `.github/workflows/vouch-manage-by-discussion.yml`
+- `templates/github/workflows/vouch-manage-by-issue.yml` ->
+  `.github/workflows/vouch-manage-by-issue.yml`
 
 Use `actions/create-github-app-token`, not default `GITHUB_TOKEN`, for
 all Vouch actions. Keep repo Actions default workflow permissions
 read-only; write access comes from the app installation token.
 
+Replace placeholders such as `{{RUNNER_LABEL}}`,
+`{{CREATE_GITHUB_APP_TOKEN_REF}}`, `{{CHECKOUT_ACTION_REF}}`, and
+`{{VOUCH_ACTION_REF}}`. Do not leave template placeholders in the target
+repo.
+
 Do not add `vouch-sync-codeowners.yml` unless the repo actually has a
-CODEOWNERS/subsystem maintainer model.
+CODEOWNERS/subsystem maintainer model. If it is added later, document it as
+optional and explain which CODEOWNERS entries it manages.
 
 ## [4] Configure GitHub repo settings
 
@@ -222,6 +248,7 @@ Do not test `!denounce` with an account Zach wants to keep using.
 - [ ] `.github` YAML parses.
 - [ ] `CONTRIBUTING.md`, `AI_POLICY.md`, `HACKING.md`, and `AGENTS.md`
       agree on the contribution flow.
+- [ ] No `{{PLACEHOLDER}}` values remain in copied templates.
 - [ ] `contributor friendly` label exists.
 - [ ] `Vouch Request` Discussion category exists and is answerable.
 - [ ] `VOUCH_APP_ID` and `VOUCH_APP_PRIVATE_KEY` secrets exist.

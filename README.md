@@ -23,8 +23,8 @@ Zach-Skills/
 
 - Place real skills only under `skills/`.
 - Group skills by a stable domain such as `infrastructure`, `writing`, `research`, `automation`, or `content`.
-- Each skill should live in its own directory and contain a single required `SKILL.md` file plus optional `agents/`, `references/`, `scripts/`, or `assets/` subdirectories.
-- Keep `templates/` for reusable skeletons only. Files in this directory are not treated as active skills.
+- Each skill should live in its own directory and contain a single required `SKILL.md` file plus optional `agents/`, `references/`, `scripts/`, `templates/`, or `assets/` subdirectories.
+- Keep the top-level `templates/` directory for reusable skill skeletons only. Files in that directory are not treated as active skills.
 - Avoid storing credentials, tokens, or machine-specific secrets in skill files.
 - Prefer one skill per directory, even when the first version is only a single `SKILL.md`.
 - Use domain folders only as stable classification buckets; do not encode transient project names into the domain level.
@@ -55,7 +55,7 @@ Skills are loaded by Codex-compatible agents (`.agent/`) and Claude Code (`.clau
 1. Create a new directory under `skills/<domain>/<skill-name>/`.
 2. Copy `templates/SKILL.template.md` into that directory as `SKILL.md`.
 3. Fill in the frontmatter and keep the body concise.
-4. Add optional `references/`, `scripts/`, or `assets/` only when they materially improve reuse.
+4. Add optional `references/`, `scripts/`, `templates/`, or `assets/` only when they materially improve reuse.
 5. Add an entry to the skill table in this README.
 6. Create flat symlinks in both `.agent/skills/` and `.claude/skills/`:
    ```bash
