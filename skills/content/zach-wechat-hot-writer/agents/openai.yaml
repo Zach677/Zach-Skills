@@ -1,0 +1,4 @@
+interface:
+  display_name: "Zach WeChat Hot Writer"
+  short_description: "Find WeChat topics, package articles, and stage draft delivery"
+  default_prompt: "Use $zach-wechat-hot-writer to find a low-risk WeChat topic with clear middle-aged reader fit, prefer practical reminder or service-verification angles, respect EXTEND.md preferences if present, package the article, and stage a WeChat draft."

@@ -1,77 +1,81 @@
-# Zach Skills
+# Personal Zach Skills Repository
 
-This repo is now a multi-skill workspace, not a single-skill product repo.
-
-Each skill owns its own directory under `skills/`, along with its own:
-
-- `SKILL.md` trigger and workflow doc
-- `README.md` human setup and runbook
-- `references/` long-form docs
-- `scripts/` local helpers
-- `agents/` optional agent metadata
-- `EXTEND.example.md` as the checked-in template for non-secret user preferences when needed
+This repository stores personal Codex skills in a scalable directory layout.
 
 ## Layout
 
 ```text
-.
+Zach-Skills/
 ├── README.md
-├── LICENSE
 ├── skills/
-│   ├── wechat-hot-writer/
-│   ├── tuist-pr-upgrader/
-│   └── create-tuist-mobile-project/
-└── tests/
+│   └── content/
+│       └── zach-wechat-hot-writer/
+│           ├── SKILL.md
+│           ├── references/   (optional)
+│           ├── scripts/      (optional)
+│           └── assets/       (optional)
+└── templates/
+    ├── SKILL.template.md
+    └── SKILL.with-references.template.md
 ```
 
-## Current Skills
+## Conventions
 
-| Skill | Purpose | Docs |
-|---|---|---|
-| `wechat-hot-writer` | WeChat topic discovery, article packaging, visual prep, draft staging, and history sync | [skills/wechat-hot-writer/README.md](skills/wechat-hot-writer/README.md) |
-| `tuist-pr-upgrader` | Scan, plan, and run guarded Tuist upgrades with one PR per repo | [skills/tuist-pr-upgrader/README.md](skills/tuist-pr-upgrader/README.md) |
-| `create-tuist-mobile-project` | Defines the Task 1 shell for creating `local-only`, `github-backed`, or `github-and-tuist-cloud` mobile projects from public templates. | [skills/create-tuist-mobile-project/README.md](skills/create-tuist-mobile-project/README.md) |
+- Place real skills only under `skills/`.
+- Group skills by a stable domain such as `infrastructure`, `writing`, `research`, `automation`, or `content`.
+- Each skill should live in its own directory and contain a single required `SKILL.md` file plus optional `agents/`, `references/`, `scripts/`, or `assets/` subdirectories.
+- Keep `templates/` for reusable skeletons only. Files in this directory are not treated as active skills.
+- Avoid storing credentials, tokens, or machine-specific secrets in skill files.
+- Prefer one skill per directory, even when the first version is only a single `SKILL.md`.
+- Use domain folders only as stable classification buckets; do not encode transient project names into the domain level.
+- Use the `zach-` prefix for Zach-authored skills.
 
-## Repo Conventions
+## Skills
 
-- Put new skills under `skills/<skill-name>/`.
-- Keep root docs repo-level only. Do not turn the root `README.md` into a single skill manual again.
-- Put non-secret, user-editable preferences in `EXTEND.md`, and keep `EXTEND.example.md` as the checked-in starter template.
-- Put secrets in `.env`.
-- Keep runtime output local to the skill directory and out of git.
-- Add or update tests in `tests/` when a skill's behavior changes.
+| Skill | Purpose |
+| ----- | ------- |
+| [`zach-wechat-hot-writer`](skills/content/zach-wechat-hot-writer/SKILL.md) | WeChat topic discovery, article packaging, visual prep, draft staging, and history sync |
+
+## Agent Integration
+
+Skills are loaded by Codex-compatible agents (`.agent/`) and Claude Code (`.claude/`) via **flat symlinks** directly under their respective `skills/` directories. Each agent expects skills at exactly one level deep: `.agent/skills/<skill-name>/SKILL.md` or `.claude/skills/<skill-name>/SKILL.md`.
+
+```text
+.agent/skills/
+└── <skill-name> -> ../../skills/<domain>/<skill-name>   ← flat symlink
+.claude/skills/
+└── <skill-name> -> ../../skills/<domain>/<skill-name>   ← flat symlink
+```
+
+> Do **not** symlink the entire `skills/` directory — agents will not discover nested subdirectories.
 
 ## Adding a New Skill
 
-Use the scaffold script:
+1. Create a new directory under `skills/<domain>/<skill-name>/`.
+2. Copy `templates/SKILL.template.md` into that directory as `SKILL.md`.
+3. Fill in the frontmatter and keep the body concise.
+4. Add optional `references/`, `scripts/`, or `assets/` only when they materially improve reuse.
+5. Add an entry to the skill table in this README.
+6. Create flat symlinks in both `.agent/skills/` and `.claude/skills/`:
+   ```bash
+   ln -sf ../../skills/<domain>/<skill-name> .agent/skills/<skill-name>
+   ln -sf ../../skills/<domain>/<skill-name> .claude/skills/<skill-name>
+   ```
+
+## Naming Guidance
+
+- Directory names should use lowercase kebab-case.
+- Skill `name` values should be stable and descriptive.
+- Prefer names that state both target and action, such as `zach-wechat-hot-writer` or `zach-article-publish-checklist`.
+
+## Repository Hooks
+
+A pre-commit hook in `.githooks/pre-commit` enforces the rules above: every skill under `skills/<domain>/<name>/SKILL.md` must have a README entry and matching flat symlinks under `.agent/skills/` and `.claude/skills/`. Orphan symlinks fail the hook too.
+
+Enable it once per clone:
 
 ```bash
-python3 scripts/new_skill.py "My New Skill" \
-  --description "Use when this skill should trigger for a reusable workflow." \
-  --with-extend \
-  --with-agent
+git config core.hooksPath .githooks
 ```
 
-That creates `skills/my-new-skill/` with:
-
-- `SKILL.md`
-- `README.md`
-- `references/README.md`
-- `scripts/README.md`
-- optional `EXTEND.example.md`
-- optional `agents/openai.yaml`
-
-Then finish the real work:
-
-1. Replace the placeholder workflow in the generated `SKILL.md`.
-2. Rewrite the generated `README.md` into a real runbook.
-3. Remove optional files you don't actually need.
-4. Add or update tests under `tests/`.
-5. Update the root skill index if the new skill should be listed.
-6. Run verification before you call it done.
-
-## Verification
-
-```bash
-python3 -m unittest discover -s tests -q
-```
+If you must bypass it for a non-skill commit, use `git commit --no-verify`.
