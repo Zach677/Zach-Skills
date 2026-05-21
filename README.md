@@ -8,12 +8,18 @@ This repository stores personal Codex skills in a scalable directory layout.
 Zach-Skills/
 ├── README.md
 ├── skills/
+│   ├── automation/
+│   │   └── zach-oss-governance-bootstrap/
+│   │       ├── SKILL.md
+│   │       ├── references/
+│   │       ├── scripts/
+│   │       └── templates/
 │   └── content/
 │       └── zach-wechat-hot-writer/
 │           ├── SKILL.md
-│           ├── references/   (optional)
-│           ├── scripts/      (optional)
-│           └── assets/       (optional)
+│           ├── agents/
+│           ├── references/
+│           └── scripts/
 └── templates/
     ├── SKILL.template.md
     └── SKILL.with-references.template.md
