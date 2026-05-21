@@ -1,0 +1,19 @@
+{
+  "name": "<APP_NAME>",
+  "url": "https://github.com/<OWNER>/<REPO>",
+  "hook_attributes": {
+    "active": false,
+    "url": "https://github.com/<OWNER>/<REPO>"
+  },
+  "redirect_url": "http://127.0.0.1:<PORT>/callback",
+  "callback_urls": ["http://127.0.0.1:<PORT>/callback"],
+  "public": false,
+  "request_oauth_on_install": false,
+  "default_permissions": {
+    "contents": "write",
+    "issues": "write",
+    "pull_requests": "write",
+    "discussions": "write"
+  },
+  "default_events": []
+}

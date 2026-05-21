@@ -34,6 +34,7 @@ Zach-Skills/
 
 | Skill | Purpose |
 | ----- | ------- |
+| [`zach-oss-governance-bootstrap`](skills/automation/zach-oss-governance-bootstrap/SKILL.md) | Bootstrap Ghostty-style open-source contribution governance for GitHub repos |
 | [`zach-wechat-hot-writer`](skills/content/zach-wechat-hot-writer/SKILL.md) | WeChat topic discovery, article packaging, visual prep, draft staging, and history sync |
 
 ## Agent Integration
