@@ -66,6 +66,73 @@ HIGH_RISK_TOPIC_WORDS = {
     "塌房",
     "演唱会",
 }
+TRAFFIC_LANES: dict[str, dict[str, Any]] = {
+    "public_order": {
+        "label": "公共秩序与官方回应",
+        "weight": 0.88,
+        "keywords": ["回应", "官方", "通报", "警方", "辟谣", "调查", "发布", "新规", "政策", "民生"],
+    },
+    "health_life": {
+        "label": "健康生活与季节照护",
+        "weight": 0.86,
+        "keywords": ["健康", "医院", "医生", "血压", "血糖", "睡眠", "高温", "暴雨", "中暑", "饮食", "老人"],
+    },
+    "consumer_safety": {
+        "label": "消费安全与避坑",
+        "weight": 0.82,
+        "keywords": ["食品", "退款", "假货", "投诉", "价格", "保险", "手机", "微信", "支付", "家电", "安全"],
+    },
+    "family_emotion": {
+        "label": "家庭关系与情绪共鸣",
+        "weight": 0.76,
+        "keywords": ["父母", "孩子", "夫妻", "家庭", "老人", "婆媳", "退休", "照顾", "家里", "亲戚"],
+    },
+    "tech_livelihood": {
+        "label": "科技落地与生活影响",
+        "weight": 0.72,
+        "keywords": ["AI", "人工智能", "微信", "手机", "App", "机器人", "新能源", "汽车", "DeepSeek"],
+    },
+    "travel_weather": {
+        "label": "出行天气与公共服务",
+        "weight": 0.74,
+        "keywords": ["天气", "台风", "暴雨", "高温", "铁路", "航班", "景区", "门票", "出行", "旅游"],
+    },
+    "culture_hotspot": {
+        "label": "文化娱乐热点",
+        "weight": 0.64,
+        "keywords": ["电影", "综艺", "明星", "演唱会", "赛事", "体育", "文旅", "电视剧", "短剧"],
+    },
+    "general_hotspot": {
+        "label": "泛热点",
+        "weight": 0.58,
+        "keywords": [],
+    },
+}
+TRAFFIC_SIGNAL_WORDS = {
+    "回应": 0.25,
+    "官方": 0.2,
+    "通报": 0.2,
+    "辟谣": 0.18,
+    "最新": 0.16,
+    "提醒": 0.16,
+    "别": 0.12,
+    "首次": 0.12,
+    "新规": 0.12,
+    "冲上热搜": 0.12,
+    "热": 0.08,
+}
+SENSITIVITY_WORDS = {
+    "死亡": 0.18,
+    "命案": 0.22,
+    "战争": 0.22,
+    "枪击": 0.2,
+    "性侵": 0.22,
+    "自杀": 0.22,
+    "腐败": 0.18,
+    "判刑": 0.16,
+    "股市": 0.16,
+    "暴跌": 0.16,
+}
 
 
 def now_utc() -> str:
@@ -85,6 +152,14 @@ def read_json(path: Path) -> Any:
 def write_json(path: Path, payload: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
+def topic_key(title: str) -> str:
+    return re.sub(r"[^\w\u4e00-\u9fff]+", "", title).lower()
+
+
+def clamp(value: float, lower: float = 0.0, upper: float = 1.0) -> float:
+    return max(lower, min(upper, value))
 
 
 def parse_env_file(path: Path) -> dict[str, str]:
@@ -246,12 +321,53 @@ def cmd_history_export(args: argparse.Namespace) -> int:
     return 0
 
 
+def classify_traffic_lane(title: str, category: str = "") -> dict[str, Any]:
+    text = f"{title} {category}"
+    best_lane = "general_hotspot"
+    best_hits: list[str] = []
+    best_score = 0.0
+    for lane, config in TRAFFIC_LANES.items():
+        hits = [keyword for keyword in config["keywords"] if keyword and keyword.lower() in text.lower()]
+        score = min(1.0, len(hits) / 3.0) * float(config["weight"])
+        if score > best_score:
+            best_lane = lane
+            best_hits = hits
+            best_score = score
+    config = TRAFFIC_LANES[best_lane]
+    if not best_hits and best_lane == "general_hotspot":
+        best_score = float(config["weight"]) * 0.45
+    return {
+        "lane": best_lane,
+        "label": config["label"],
+        "score": round(best_score, 4),
+        "matched_keywords": best_hits[:8],
+        "weight": config["weight"],
+    }
+
+
+def traffic_signal(title: str, category: str = "") -> dict[str, Any]:
+    text = f"{title} {category}"
+    matches = [word for word in TRAFFIC_SIGNAL_WORDS if word.lower() in text.lower()]
+    score = clamp(sum(TRAFFIC_SIGNAL_WORDS[word] for word in matches), 0.0, 1.0)
+    return {"score": round(score, 4), "matched_keywords": matches[:8]}
+
+
+def sensitivity_signal(title: str, category: str = "") -> dict[str, Any]:
+    text = f"{title} {category}"
+    matches = [word for word in SENSITIVITY_WORDS if word.lower() in text.lower()]
+    score = clamp(sum(SENSITIVITY_WORDS[word] for word in matches), 0.0, 0.75)
+    return {"score": round(score, 4), "matched_keywords": matches[:8]}
+
+
 def estimate_topic(raw: dict[str, Any], rank: int, total: int) -> dict[str, Any]:
     title = str(raw.get("title", "")).strip()
     category = str(raw.get("category") or raw.get("source") or "")
     text = f"{title} {category}".lower()
     preferred_hits = sum(1 for word in PREFERRED_TOPIC_WORDS if word.lower() in text or word in title)
     risk_hits = sum(1 for word in HIGH_RISK_TOPIC_WORDS if word.lower() in text or word in title)
+    lane = classify_traffic_lane(title, category)
+    signal = traffic_signal(title, category)
+    sensitivity = sensitivity_signal(title, category)
     freshness = max(0.2, 1.0 - ((rank - 1) / max(total, 1)))
     hot_raw = raw.get("hot_value") or raw.get("hot") or raw.get("heat") or 0
     try:
@@ -259,25 +375,44 @@ def estimate_topic(raw: dict[str, Any], rank: int, total: int) -> dict[str, Any]
     except Exception:
         hot_metric = 0.0
     heat = min(1.0, hot_metric / 1000000.0) if hot_metric else freshness
-    reader_relevance = min(1.0, 0.32 + 0.14 * preferred_hits)
-    compliance_risk = min(0.9, 0.12 + 0.16 * risk_hits)
-    explainability = 0.72 if preferred_hits else 0.48
-    shareability = 0.72 if any(word in title for word in ("提醒", "家里", "父母", "老人", "别", "先")) else 0.5
-    score = max(0.0, min(1.0, freshness * heat * reader_relevance * explainability * shareability * (1.0 - compliance_risk)))
+    reader_relevance = clamp(0.34 + 0.1 * preferred_hits + 0.12 * float(lane["score"]))
+    compliance_risk = clamp(0.1 + 0.14 * risk_hits + float(sensitivity["score"]), 0.0, 0.95)
+    explainability = clamp(0.48 + 0.22 * bool(preferred_hits) + 0.16 * float(signal["score"]))
+    shareability = clamp(
+        0.48
+        + 0.24 * float(signal["score"])
+        + (0.14 if any(word in title for word in ("提醒", "家里", "父母", "老人", "别", "先")) else 0.0)
+    )
+    score = clamp(
+        0.22 * freshness
+        + 0.2 * heat
+        + 0.2 * float(signal["score"])
+        + 0.16 * float(lane["score"])
+        + 0.14 * reader_relevance
+        + 0.08 * shareability
+        - 0.2 * compliance_risk
+    )
     return {
         "source": raw.get("source") or category or "direct",
         "title": title,
         "url": raw.get("url") or "",
         "category": category,
+        "topic_key": topic_key(title),
+        "traffic_lane": lane,
+        "traffic_signal": signal,
         "freshness": round(freshness, 4),
         "heat": round(heat, 4),
         "reader_relevance": round(reader_relevance, 4),
+        "explainability": round(explainability, 4),
         "shareability": round(shareability, 4),
         "compliance_risk": round(compliance_risk, 4),
+        "sensitivity": sensitivity,
         "score": round(score, 4),
         "score_breakdown": {
             "freshness": round(freshness, 4),
             "heat": round(heat, 4),
+            "traffic_signal": signal["score"],
+            "traffic_lane": lane["score"],
             "reader_relevance": round(reader_relevance, 4),
             "explainability": round(explainability, 4),
             "shareability": round(shareability, 4),
@@ -292,14 +427,170 @@ def estimate_topic(raw: dict[str, Any], rank: int, total: int) -> dict[str, Any]
     }
 
 
+def read_optional_json(path: Path) -> Any | None:
+    try:
+        if path.exists():
+            return read_json(path)
+    except Exception:
+        return None
+    return None
+
+
+def latest_snapshot_path(snapshots_dir: Path) -> Path | None:
+    if not snapshots_dir.exists():
+        return None
+    candidates = sorted(path for path in snapshots_dir.glob("*.json") if path.is_file())
+    return candidates[-1] if candidates else None
+
+
+def summarize_lanes(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    grouped: dict[str, dict[str, Any]] = {}
+    for item in items:
+        lane = item.get("traffic_lane", {})
+        lane_id = str(lane.get("lane") or "general_hotspot")
+        entry = grouped.setdefault(
+            lane_id,
+            {
+                "lane": lane_id,
+                "label": lane.get("label") or TRAFFIC_LANES.get(lane_id, TRAFFIC_LANES["general_hotspot"])["label"],
+                "count": 0,
+                "score_total": 0.0,
+                "top_titles": [],
+            },
+        )
+        entry["count"] += 1
+        entry["score_total"] += float(item.get("trend_score", item.get("score", 0.0)) or 0.0)
+        if len(entry["top_titles"]) < 4:
+            entry["top_titles"].append(item.get("title", ""))
+    summary = []
+    for entry in grouped.values():
+        count = max(int(entry["count"]), 1)
+        summary.append(
+            {
+                "lane": entry["lane"],
+                "label": entry["label"],
+                "count": entry["count"],
+                "average_score": round(float(entry["score_total"]) / count, 4),
+                "top_titles": entry["top_titles"],
+            }
+        )
+    return sorted(summary, key=lambda item: (item["count"], item["average_score"]), reverse=True)
+
+
+def apply_previous_trend(topic: dict[str, Any], previous_by_key: dict[str, dict[str, Any]], rank: int) -> dict[str, Any]:
+    previous = previous_by_key.get(str(topic.get("topic_key") or topic_key(str(topic.get("title", "")))))
+    previous_rank = int(previous.get("rank", 0) or 0) if previous else 0
+    previous_heat = float(previous.get("heat", 0.0) or 0.0) if previous else 0.0
+    rank_gain = max(0.0, (previous_rank - rank) / 30.0) if previous_rank else 0.0
+    heat_gain = max(0.0, float(topic.get("heat", 0.0) or 0.0) - previous_heat)
+    new_bonus = 0.14 if not previous else 0.0
+    velocity = clamp(new_bonus + rank_gain + 0.4 * heat_gain)
+    trend_score = clamp(float(topic.get("score", 0.0) or 0.0) + 0.32 * velocity)
+    enriched = dict(topic)
+    enriched["rank"] = rank
+    enriched["trend"] = {
+        "is_new": previous is None,
+        "previous_rank": previous_rank or None,
+        "rank_gain": round(rank_gain, 4),
+        "heat_gain": round(heat_gain, 4),
+        "velocity": round(velocity, 4),
+    }
+    enriched["trend_score"] = round(trend_score, 4)
+    return enriched
+
+
+def load_trend_map(path_value: str) -> dict[str, dict[str, Any]]:
+    if not path_value:
+        return {}
+    payload = read_optional_json(Path(path_value))
+    if not isinstance(payload, dict):
+        return {}
+    items = payload.get("items") or payload.get("rising_topics") or []
+    if not isinstance(items, list):
+        return {}
+    result = {}
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        key = str(item.get("topic_key") or topic_key(str(item.get("title", ""))))
+        if key:
+            result[key] = item
+    return result
+
+
+def cmd_trend_scan(args: argparse.Namespace) -> int:
+    repo = Path(args.repo).resolve()
+    output = normalize_path(args.output, repo)
+    snapshots_dir = normalize_path(args.snapshots_dir, repo)
+    previous_path = latest_snapshot_path(snapshots_dir)
+    previous_payload = read_optional_json(previous_path) if previous_path else None
+    previous_items = previous_payload.get("items", []) if isinstance(previous_payload, dict) else []
+    previous_by_key = {
+        str(item.get("topic_key") or topic_key(str(item.get("title", "")))): item
+        for item in previous_items
+        if isinstance(item, dict)
+    }
+
+    direct = fetch_direct_hotspots(limit=args.limit, timeout=min(args.timeout, 20))
+    estimated = [
+        estimate_topic(item, index, len(direct.get("items", [])) or 1)
+        for index, item in enumerate(direct.get("items", []), start=1)
+        if str(item.get("title", "")).strip()
+    ]
+    items = [apply_previous_trend(topic, previous_by_key, index) for index, topic in enumerate(estimated, start=1)]
+    items = sorted(items, key=lambda item: item["trend_score"], reverse=True)
+    rising_topics = [
+        item
+        for item in items
+        if item["trend"]["is_new"] or item["trend"]["rank_gain"] > 0 or item["trend"]["heat_gain"] > 0
+    ][: args.top]
+    lane_summary = summarize_lanes(items)
+    snapshot = {
+        "generated_at": now_utc(),
+        "repo": str(repo),
+        "items": items,
+        "source_failures": direct.get("failures", []),
+    }
+    snapshot_name = dt.datetime.now().astimezone().strftime("%Y-%m-%d-%H%M%S.json")
+    snapshot_path = snapshots_dir / snapshot_name
+    write_json(snapshot_path, snapshot)
+    payload = {
+        "generated_at": snapshot["generated_at"],
+        "repo": str(repo),
+        "scan_interval_hint_minutes": args.interval_minutes,
+        "previous_snapshot": str(previous_path) if previous_path else "",
+        "snapshot_path": str(snapshot_path),
+        "items": items[: args.top],
+        "rising_topics": rising_topics,
+        "lane_summary": lane_summary,
+        "source_failures": direct.get("failures", []),
+        "notes": "Use this file as the short-term traffic layer. The agent still makes the final editorial call.",
+    }
+    write_json(output, payload)
+    print(json.dumps(payload, ensure_ascii=False, indent=2))
+    return 0
+
+
 def cmd_discover_topics(args: argparse.Namespace) -> int:
     history = load_history_payload(args.history_file)
+    trend_map = load_trend_map(args.trend_file)
     direct = fetch_direct_hotspots(limit=max(args.limit * 20, args.per_source * 12, 120), timeout=min(args.timeout, 20))
     estimated = [
         estimate_topic(item, index, len(direct.get("items", [])) or 1)
         for index, item in enumerate(direct.get("items", []), start=1)
         if str(item.get("title", "")).strip()
     ]
+    if trend_map:
+        boosted = []
+        for topic in estimated:
+            trend_item = trend_map.get(str(topic.get("topic_key") or ""))
+            if trend_item:
+                topic = dict(topic)
+                topic["trend"] = trend_item.get("trend", {})
+                topic["trend_score"] = trend_item.get("trend_score", topic.get("score", 0.0))
+                topic["score"] = round(clamp(float(topic["score"]) + 0.22 * float(topic["trend_score"])), 4)
+            boosted.append(topic)
+        estimated = boosted
     by_source: dict[str, list[dict[str, Any]]] = {}
     for topic in estimated:
         by_source.setdefault(str(topic.get("source") or "direct"), []).append(topic)
@@ -345,6 +636,10 @@ def cmd_discover_topics(args: argparse.Namespace) -> int:
             "path": args.history_file or None,
             "window_days": args.history_window_days,
             "article_count": len(history.get("articles", [])),
+        },
+        "trend": {
+            "path": args.trend_file or None,
+            "available": bool(trend_map),
         },
         "topics": topics,
         "fallback_candidates": fallback_candidates,
@@ -956,16 +1251,27 @@ def build_parser() -> argparse.ArgumentParser:
     history.add_argument("--output", default=".zach-wechat-daily-publisher/history.json")
     history.set_defaults(handler=cmd_history_export)
 
+    trend = subparsers.add_parser("trend-scan", help="Capture a periodic traffic trend snapshot")
+    trend.add_argument("--repo", required=True)
+    trend.add_argument("--limit", type=int, default=120)
+    trend.add_argument("--top", type=int, default=16)
+    trend.add_argument("--output", default=".zach-wechat-daily-publisher/trend-latest.json")
+    trend.add_argument("--snapshots-dir", default=".zach-wechat-daily-publisher/trend-snapshots")
+    trend.add_argument("--interval-minutes", type=int, default=180)
+    trend.add_argument("--timeout", type=int, default=35)
+    trend.set_defaults(handler=cmd_trend_scan)
+
     discover = subparsers.add_parser("discover-topics", help="Discover topics from direct public sources only")
     discover.add_argument("--limit", type=int, default=8)
     discover.add_argument("--per-source", type=int, default=8)
     discover.add_argument("--output", default=".zach-wechat-daily-publisher/topics.json")
     discover.add_argument("--source-mode", choices=("auto", "hybrid", "direct"), default="hybrid")
     discover.add_argument("--history-file", default=".zach-wechat-daily-publisher/history.json")
+    discover.add_argument("--trend-file", default=".zach-wechat-daily-publisher/trend-latest.json")
     discover.add_argument("--history-window-days", type=int, default=7)
     discover.add_argument("--allow-high-risk", action="store_true")
-    discover.add_argument("--max-risk", type=float, default=0.35)
-    discover.add_argument("--min-reader-relevance", "--min-ai-relevance", dest="min_reader_relevance", type=float, default=0.46)
+    discover.add_argument("--max-risk", type=float, default=0.45)
+    discover.add_argument("--min-reader-relevance", "--min-ai-relevance", dest="min_reader_relevance", type=float, default=0.32)
     discover.add_argument("--enrich-seo", action="store_true")
     discover.add_argument("--timeout", type=int, default=35)
     discover.set_defaults(handler=cmd_discover_topics)

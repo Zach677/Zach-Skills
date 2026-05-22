@@ -16,6 +16,8 @@ Script-owned:
 
 - daily publish/blocker guard
 - history export
+- periodic trend snapshot capture
+- trend-aware topic candidate scoring
 - article frontmatter validation
 - cover prompt artifact creation
 - Markdown to WeChat-ready HTML rendering

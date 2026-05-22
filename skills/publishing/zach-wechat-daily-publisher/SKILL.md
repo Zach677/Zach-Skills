@@ -46,15 +46,24 @@ uses this skill directory.
    ```bash
    python3 /path/to/skill/scripts/publisher_ops.py history-export --repo . --output .zach-wechat-daily-publisher/history.json
    ```
-3. Pick one timely topic. The agent may use web research and the exported
-   history. Load [references/topic_selection.md](references/topic_selection.md)
-   for scoring rules.
-4. Write one full Simplified Chinese article. Load
+3. Capture the short-term traffic trend:
+   ```bash
+   python3 /path/to/skill/scripts/publisher_ops.py trend-scan --repo . --interval-minutes 180
+   ```
+4. Discover trend-aware topic candidates:
+   ```bash
+   python3 /path/to/skill/scripts/publisher_ops.py discover-topics --source-mode hybrid --limit 8
+   ```
+5. Pick one timely topic. The agent may use web research, exported history, and
+   the latest trend scan. Load
+   [references/topic_selection.md](references/topic_selection.md) for scoring
+   rules.
+6. Write one full Simplified Chinese article. Load
    [references/article_writing.md](references/article_writing.md) and
    [references/article_package.md](references/article_package.md).
-5. Save the article under `articles/YYYY-MM-DD-slug.md` with frontmatter:
+7. Save the article under `articles/YYYY-MM-DD-slug.md` with frontmatter:
    `title`, `summary`, `coverImage`, and `author`.
-6. Create cover prompt artifacts:
+8. Create cover prompt artifacts:
    ```bash
    python3 /path/to/skill/scripts/publisher_ops.py cover-prompt --article articles/YYYY-MM-DD-slug.md --work-dir cover-image/slug
    ```
@@ -62,17 +71,17 @@ uses this skill directory.
    the exact `coverImage` path, and never reuse `articles/imgs/cover.png` unless
    cover generation failed and the blocker/log explicitly says so. Load
    [references/cover_generation.md](references/cover_generation.md).
-7. Validate and render:
+9. Validate and render:
    ```bash
    python3 /path/to/skill/scripts/publisher_ops.py validate-article --article articles/YYYY-MM-DD-slug.md
    python3 /path/to/skill/scripts/publisher_ops.py render --article articles/YYYY-MM-DD-slug.md
    ```
-8. Publish through API only:
+10. Publish through API only:
    ```bash
    python3 /path/to/skill/scripts/publisher_ops.py publish-api --article articles/YYYY-MM-DD-slug.md --cover articles/imgs/YYYY-MM-DD-slug-cover.png
    ```
    Load [references/wechat_api_publish.md](references/wechat_api_publish.md).
-9. Write either a success log or blocker log using
+11. Write either a success log or blocker log using
    `publisher_ops.py write-log`. Load
    [references/logging_contract.md](references/logging_contract.md).
 
