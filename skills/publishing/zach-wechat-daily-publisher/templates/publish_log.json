@@ -1,0 +1,12 @@
+{
+  "date": "YYYY-MM-DD",
+  "status": "draft_created",
+  "article_path": "",
+  "title": "",
+  "method": "wechat-api/draft-add",
+  "timestamp": "",
+  "media_id": "",
+  "cover_status": {},
+  "frontmatter_coverImage": "",
+  "notes": ""
+}

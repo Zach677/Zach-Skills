@@ -1,17 +1,29 @@
-# Zach WeChat Hot Writer Preferences
+# Zach WeChat Daily Publisher Preferences
 #
 # Copy this file to one of:
-# - .baoyu-skills/zach-wechat-hot-writer/EXTEND.md
-# - ${XDG_CONFIG_HOME:-$HOME/.config}/baoyu-skills/zach-wechat-hot-writer/EXTEND.md
-# - ~/.baoyu-skills/zach-wechat-hot-writer/EXTEND.md
+# - .baoyu-skills/zach-wechat-daily-publisher/EXTEND.md
+# - ${XDG_CONFIG_HOME:-$HOME/.config}/baoyu-skills/zach-wechat-daily-publisher/EXTEND.md
+# - ~/.baoyu-skills/zach-wechat-daily-publisher/EXTEND.md
 #
 # This file is for non-secret preferences only.
 # Keep API keys and WeChat credentials in .env.
 
-lane: 通用家庭提醒、信息安全与银发服务
-fallback_query: 家庭 健康 防骗 消费 出行 预约 认证 辟谣 提醒
+lane: 中老年健康与银发生活
+fallback_query: 中老年 健康 睡眠 饮食 家庭 防骗 消费 出行 预约 认证 辟谣 提醒
 min_reader_relevance: 0.46
 max_risk: 0.35
+default_author: zachaics
+default_theme: default
+default_color: blue
+need_open_comment: 1
+only_fans_can_comment: 0
+
+cover:
+  aspect: "2.35:1"
+  rendering: flat-vector
+  text: title-only
+  mood: balanced
+  font: clean
 
 title_templates:
 - 家里有老人会碰到「{title}」的，先把入口、条件和时间点看明白

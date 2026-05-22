@@ -14,12 +14,13 @@ Zach-Skills/
 │   │       ├── references/
 │   │       ├── scripts/
 │   │       └── templates/
-│   └── content/
-│       └── zach-wechat-hot-writer/
+│   └── publishing/
+│       └── zach-wechat-daily-publisher/
 │           ├── SKILL.md
 │           ├── agents/
 │           ├── references/
-│           └── scripts/
+│           ├── scripts/
+│           └── templates/
 └── templates/
     ├── SKILL.template.md
     └── SKILL.with-references.template.md
@@ -41,7 +42,7 @@ Zach-Skills/
 | Skill | Purpose |
 | ----- | ------- |
 | [`zach-oss-governance-bootstrap`](skills/automation/zach-oss-governance-bootstrap/SKILL.md) | Bootstrap Ghostty-style open-source contribution governance for GitHub repos |
-| [`zach-wechat-hot-writer`](skills/content/zach-wechat-hot-writer/SKILL.md) | WeChat topic discovery, article packaging, visual prep, draft staging, and history sync |
+| [`zach-wechat-daily-publisher`](skills/publishing/zach-wechat-daily-publisher/SKILL.md) | AI-led daily WeChat article writing with cover generation, API draft publishing, and logs |
 
 ## Agent Integration
 
@@ -73,7 +74,7 @@ Skills are loaded by Codex-compatible agents (`.agent/`) and Claude Code (`.clau
 
 - Directory names should use lowercase kebab-case.
 - Skill `name` values should be stable and descriptive.
-- Prefer names that state both target and action, such as `zach-wechat-hot-writer` or `zach-article-publish-checklist`.
+- Prefer names that state both target and action, such as `zach-wechat-daily-publisher` or `zach-article-publish-checklist`.
 
 ## Repository Hooks
 

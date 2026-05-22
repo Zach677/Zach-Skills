@@ -131,10 +131,22 @@ def fetch_direct_hotspots(limit: int = 20, timeout: int = 10) -> dict[str, Any]:
         if existing is None or int(item.get("hot_value", 0) or 0) > int(existing.get("hot_value", 0) or 0):
             deduped[key] = item
 
-    ordered = sorted(deduped.values(), key=lambda entry: int(entry.get("hot_value", 0) or 0), reverse=True)
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    for entry in deduped.values():
+        grouped.setdefault(str(entry.get("source") or "direct"), []).append(entry)
+    for entries in grouped.values():
+        entries.sort(key=lambda entry: int(entry.get("hot_value", 0) or 0), reverse=True)
+
+    ordered: list[dict[str, Any]] = []
+    while len(ordered) < limit and any(grouped.values()):
+        for source_name in sorted(grouped):
+            if grouped[source_name]:
+                ordered.append(grouped[source_name].pop(0))
+                if len(ordered) >= limit:
+                    break
     return {
         "generated_at": dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat(),
-        "items": ordered[:limit],
+        "items": ordered,
         "failures": failures,
     }
 

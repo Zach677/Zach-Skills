@@ -1,0 +1,13 @@
+{
+  "date": "YYYY-MM-DD",
+  "status": "blocked",
+  "blocked_at": "",
+  "article_path": "",
+  "title": "",
+  "method": "wechat-api/draft-add",
+  "blocker_type": "",
+  "error": "",
+  "cover_status": {},
+  "frontmatter_coverImage": "",
+  "notes": ""
+}
