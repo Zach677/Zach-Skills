@@ -10,6 +10,8 @@ caregivers. Prefer useful, low-risk, easy-to-forward articles.
 - official or credible source backing
 - short paragraphs
 - section titles that say something, not category labels
+- real Markdown lists for action checklists and warning signs
+- one or two standalone bold reminder lines at most
 - ending that tells the family what to do today
 
 ## Self-check Before Publishing
@@ -24,6 +26,10 @@ caregivers. Prefer useful, low-risk, easy-to-forward articles.
 - Rumor/fake-notice content says what the original claim is, what the official
   source says, and what not to forward.
 - The main point can be retold in one sentence in a family group chat.
+- The final action section is a scan-friendly list, not a sequence of prose
+  paragraphs starting with "第一、第二、第三".
+- `## 参考资料` is present when current facts are sourced, and links are written
+  as Markdown links so the renderer can make a clean source section.
 
 ## WeWrite Ideas To Reuse
 

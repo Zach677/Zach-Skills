@@ -9,6 +9,8 @@ import json
 import mimetypes
 import os
 import re
+import shutil
+import subprocess
 import sys
 import urllib.error
 import urllib.parse
@@ -25,6 +27,10 @@ UPLOAD_BODY_IMAGE_URL = "https://api.weixin.qq.com/cgi-bin/media/uploadimg"
 UPLOAD_MATERIAL_URL = "https://api.weixin.qq.com/cgi-bin/material/add_material"
 DRAFT_URL = "https://api.weixin.qq.com/cgi-bin/draft/add"
 USER_AGENT = "zach-wechat-daily-publisher/0.1"
+SCRIPT_DIR = Path(__file__).resolve().parent
+BAOYU_RENDER_SCRIPT = SCRIPT_DIR / "render_wechat_with_baoyu.ts"
+BAOYU_PACKAGE_JSON = SCRIPT_DIR / "package.json"
+BAOYU_NODE_MODULE = SCRIPT_DIR / "node_modules" / "baoyu-md"
 PREFERRED_TOPIC_WORDS = {
     "中老年",
     "老人",
@@ -798,134 +804,69 @@ Quality requirements:
     return 0
 
 
-class CitationState:
-    def __init__(self) -> None:
-        self.items: list[tuple[str, str]] = []
-        self.index_by_url: dict[str, int] = {}
-
-    def cite(self, label: str, url: str) -> str:
-        if url not in self.index_by_url:
-            self.index_by_url[url] = len(self.items) + 1
-            self.items.append((label, url))
-        index = self.index_by_url[url]
-        return f'<sup style="font-size: 0.8em;">[{index}]</sup>'
+def bun_executable() -> str:
+    bun = shutil.which("bun")
+    if not bun:
+        raise RuntimeError("missing Bun runtime required for baoyu-md rendering")
+    return bun
 
 
-def render_inline(text: str, citations: CitationState) -> str:
-    escaped = html.escape(text)
-
-    def image_repl(match: re.Match[str]) -> str:
-        alt = html.escape(match.group(1), quote=True)
-        target = html.unescape(match.group(2))
-        return f'<img src="{html.escape(target, quote=True)}" alt="{alt}" style="display:block;width:100%;height:auto;margin:18px auto;" />'
-
-    def link_repl(match: re.Match[str]) -> str:
-        label = html.unescape(match.group(1))
-        target = html.unescape(match.group(2))
-        parsed = urllib.parse.urlparse(target)
-        if parsed.scheme in {"http", "https"}:
-            return html.escape(label) + citations.cite(label, target)
-        return html.escape(label)
-
-    escaped = re.sub(r"!\[([^\]]*)\]\(([^)]+)\)", image_repl, escaped)
-    escaped = re.sub(r"\[([^\]]+)\]\(([^)]+)\)", link_repl, escaped)
-    escaped = re.sub(r"`([^`]+)`", r"<code>\1</code>", escaped)
-    escaped = re.sub(r"\*\*([^*]+)\*\*", r"<strong>\1</strong>", escaped)
-    escaped = re.sub(r"\*([^*]+)\*", r"<em>\1</em>", escaped)
-    return escaped
+def ensure_baoyu_renderer_dependencies() -> None:
+    if BAOYU_NODE_MODULE.exists():
+        return
+    if not BAOYU_PACKAGE_JSON.exists():
+        raise RuntimeError(f"missing baoyu-md package manifest: {BAOYU_PACKAGE_JSON}")
+    result = subprocess.run(
+        [bun_executable(), "install", "--frozen-lockfile"],
+        cwd=SCRIPT_DIR,
+        text=True,
+        capture_output=True,
+    )
+    if result.returncode != 0:
+        detail = (result.stderr or result.stdout).strip()
+        raise RuntimeError(f"failed to install baoyu-md renderer dependencies: {detail}")
 
 
-def markdown_to_wechat_html(markdown_text: str) -> tuple[str, list[tuple[str, str]]]:
-    citations = CitationState()
-    blocks: list[str] = []
-    paragraph: list[str] = []
-    list_type: str | None = None
-    list_items: list[str] = []
-
-    def flush_paragraph() -> None:
-        nonlocal paragraph
-        if paragraph:
-            text = "<br />".join(render_inline(line, citations) for line in paragraph)
-            blocks.append(f'<p style="line-height:1.8;margin:0 0 16px;color:#1f2933;font-size:16px;">{text}</p>')
-            paragraph = []
-
-    def flush_list() -> None:
-        nonlocal list_type, list_items
-        if list_type and list_items:
-            items = "".join(
-                f'<li style="margin:0 0 8px;line-height:1.75;">{item}</li>' for item in list_items
-            )
-            blocks.append(f'<{list_type} style="padding-left:1.4em;margin:0 0 16px;color:#1f2933;font-size:16px;">{items}</{list_type}>')
-        list_type = None
-        list_items = []
-
-    for raw_line in markdown_text.splitlines():
-        line = raw_line.strip()
-        if not line:
-            flush_paragraph()
-            flush_list()
-            continue
-        heading = re.match(r"^(#{1,6})\s+(.+)$", line)
-        ordered = re.match(r"^\d+\.\s+(.+)$", line)
-        unordered = re.match(r"^[-*]\s+(.+)$", line)
-        quote = re.match(r"^>\s?(.+)$", line)
-        if heading:
-            flush_paragraph()
-            flush_list()
-            level = len(heading.group(1))
-            if level == 1:
-                blocks.append(f'<h1 style="font-size:22px;line-height:1.45;margin:0 0 22px;color:#111827;font-weight:600;">{render_inline(heading.group(2), citations)}</h1>')
-            else:
-                blocks.append(f'<h2 style="font-size:19px;line-height:1.55;margin:28px 0 14px;color:#111827;font-weight:600;">{render_inline(heading.group(2), citations)}</h2>')
-            continue
-        if quote:
-            flush_paragraph()
-            flush_list()
-            blocks.append(f'<blockquote style="border-left:3px solid #9fb3c8;padding:0 0 0 12px;margin:18px 0;color:#52606d;">{render_inline(quote.group(1), citations)}</blockquote>')
-            continue
-        if ordered:
-            flush_paragraph()
-            if list_type not in (None, "ol"):
-                flush_list()
-            list_type = "ol"
-            list_items.append(render_inline(ordered.group(1), citations))
-            continue
-        if unordered:
-            flush_paragraph()
-            if list_type not in (None, "ul"):
-                flush_list()
-            list_type = "ul"
-            list_items.append(render_inline(unordered.group(1), citations))
-            continue
-        paragraph.append(line)
-
-    flush_paragraph()
-    flush_list()
-    if citations.items:
-        ref_items = "".join(
-            f'<p style="font-size:13px;line-height:1.6;margin:0 0 8px;color:#52606d;">[{index}] {html.escape(label)}: {html.escape(url)}</p>'
-            for index, (label, url) in enumerate(citations.items, start=1)
-        )
-        blocks.append('<hr style="border:none;border-top:1px solid #d9e2ec;margin:28px 0 16px;" />')
-        blocks.append(f'<section style="margin-top:12px;">{ref_items}</section>')
-    return "\n".join(blocks), citations.items
+def render_article_with_baoyu(article: Path, output: Path) -> dict[str, Any]:
+    ensure_baoyu_renderer_dependencies()
+    command = [
+        bun_executable(),
+        str(BAOYU_RENDER_SCRIPT),
+        "--article",
+        str(article),
+        "--output",
+        str(output),
+    ]
+    theme = os.environ.get("ZACH_WECHAT_RENDER_THEME", "").strip()
+    color = os.environ.get("ZACH_WECHAT_RENDER_COLOR", "").strip()
+    font_size = os.environ.get("ZACH_WECHAT_RENDER_FONT_SIZE", "").strip()
+    if theme:
+        command.extend(["--theme", theme])
+    if color:
+        command.extend(["--color", color])
+    if font_size:
+        command.extend(["--font-size", font_size])
+    result = subprocess.run(
+        command,
+        cwd=article.parent,
+        text=True,
+        capture_output=True,
+    )
+    if result.returncode != 0:
+        detail = (result.stderr or result.stdout).strip()
+        raise RuntimeError(f"baoyu-md render failed: {detail}")
+    try:
+        payload = json.loads(result.stdout)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(f"baoyu-md render returned invalid JSON: {result.stdout[:500]}") from exc
+    payload["inline_images"] = extract_image_sources(output.read_text(encoding="utf-8"))
+    return payload
 
 
 def render_article_to_path(article: Path, output: Path) -> dict[str, Any]:
     article = article.resolve()
-    frontmatter, body = parse_frontmatter(article)
-    title = frontmatter.get("title") or first_heading(body) or article.stem
-    if not re.search(r"(?m)^#\s+", body):
-        body = f"# {title}\n\n{body}"
-    content_html, citations = markdown_to_wechat_html(body)
-    output.write_text(content_html + "\n", encoding="utf-8")
-    return {
-        "html_path": str(output),
-        "title": title,
-        "summary": frontmatter.get("summary") or "",
-        "citations": [{"label": label, "url": url} for label, url in citations],
-        "inline_images": extract_image_sources(content_html),
-    }
+    output = output.resolve()
+    return render_article_with_baoyu(article, output)
 
 
 def cmd_render(args: argparse.Namespace) -> int:

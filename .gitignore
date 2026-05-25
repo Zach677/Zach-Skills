@@ -8,5 +8,6 @@ skills/**/.opencli/
 skills/**/out/
 skills/**/tmp/
 skills/**/__pycache__/
+skills/**/scripts/node_modules/
 __pycache__/
 *.pyc

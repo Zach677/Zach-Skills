@@ -76,6 +76,8 @@ uses this skill directory.
    python3 /path/to/skill/scripts/publisher_ops.py validate-article --article articles/YYYY-MM-DD-slug.md
    python3 /path/to/skill/scripts/publisher_ops.py render --article articles/YYYY-MM-DD-slug.md
    ```
+   Rendering uses the locked `baoyu-md` Bun adapter in this skill. The first run
+   may install `scripts/` dependencies with `bun install --frozen-lockfile`.
 10. Publish through API only:
    ```bash
    python3 /path/to/skill/scripts/publisher_ops.py publish-api --article articles/YYYY-MM-DD-slug.md --cover articles/imgs/YYYY-MM-DD-slug-cover.png

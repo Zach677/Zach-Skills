@@ -23,7 +23,11 @@ Rules:
 - Do not point at `articles/imgs/cover.png` unless generation failed and the
   log says the generic fallback was reused.
 - `summary` should be concise enough for WeChat share cards.
+- Do not repeat the frontmatter title as a body H1. The WeChat draft title field
+  already carries the title; start the body with the opening paragraph.
 - Keep references in the Markdown body so facts can be checked later.
+- Use `## 参考资料` for source lists. Links in that section are rendered as a
+  compact source list and are not duplicated into another bottom citation block.
 
 ## Optional JSON Package
 
