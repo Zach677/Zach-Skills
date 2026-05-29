@@ -1,0 +1,4 @@
+interface:
+  display_name: "Zach Codex Retrospective"
+  short_description: "Review Codex collaboration history and propose minimal instruction or skill updates"
+  default_prompt: "Use $zach-codex-retrospective to review the last 14 days of Codex work, identify repeated friction or useful defaults, and propose minimal AGENTS.md or tiny skill updates without applying them."

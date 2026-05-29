@@ -41,6 +41,7 @@ Zach-Skills/
 
 | Skill | Purpose |
 | ----- | ------- |
+| [`zach-codex-retrospective`](skills/automation/zach-codex-retrospective/SKILL.md) | Review recent Codex collaboration history and propose minimal AGENTS.md or tiny skill updates |
 | [`zach-oss-governance-bootstrap`](skills/automation/zach-oss-governance-bootstrap/SKILL.md) | Bootstrap Ghostty-style open-source contribution governance for GitHub repos |
 | [`zach-wechat-daily-publisher`](skills/publishing/zach-wechat-daily-publisher/SKILL.md) | AI-led daily WeChat article writing with cover generation, API draft publishing, and logs |
 
