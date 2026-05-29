@@ -73,22 +73,6 @@ Skills are loaded by Codex-compatible agents (`.agent/`) and Claude Code (`.clau
 
 > Do **not** symlink the entire `skills/` directory — agents will not discover nested subdirectories.
 
-## Local Installation
-
-For local development on Zach's machine, install each active skill as an
-absolute symlink into both Codex and agent skill roots:
-
-```bash
-ln -sfn "$PWD/skills/automation/zach-codex-retrospective" "$HOME/.codex/skills/zach-codex-retrospective"
-ln -sfn "$PWD/skills/automation/zach-codex-retrospective" "$HOME/.agents/skills/zach-codex-retrospective"
-ln -sfn "$PWD/skills/automation/zach-oss-governance-bootstrap" "$HOME/.codex/skills/zach-oss-governance-bootstrap"
-ln -sfn "$PWD/skills/automation/zach-oss-governance-bootstrap" "$HOME/.agents/skills/zach-oss-governance-bootstrap"
-ln -sfn "$PWD/skills/publishing/zach-wechat-daily-publisher" "$HOME/.codex/skills/zach-wechat-daily-publisher"
-ln -sfn "$PWD/skills/publishing/zach-wechat-daily-publisher" "$HOME/.agents/skills/zach-wechat-daily-publisher"
-```
-
-Restart Codex after changing installed skills so the skill index refreshes.
-
 ## Adding a New Skill
 
 1. Create a new directory under `skills/<domain>/<skill-name>/`.
@@ -101,9 +85,6 @@ Restart Codex after changing installed skills so the skill index refreshes.
    ln -sf ../../skills/<domain>/<skill-name> .agent/skills/<skill-name>
    ln -sf ../../skills/<domain>/<skill-name> .claude/skills/<skill-name>
    ```
-7. If the skill should be available globally on this machine, add or refresh
-   the corresponding symlinks under `$HOME/.codex/skills/` and
-   `$HOME/.agents/skills/`.
 
 ## Naming Guidance
 
