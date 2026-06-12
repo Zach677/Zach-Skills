@@ -8,27 +8,17 @@ This repository stores personal Codex skills in a scalable directory layout.
 Zach-Skills/
 ├── README.md
 ├── skills/
-│   ├── automation/
-│   │   ├── zach-codex-retrospective/
-│   │   │   ├── SKILL.md
-│   │   │   ├── agents/
-│   │   │   └── references/
-│   │   └── zach-oss-governance-bootstrap/
-│   │       ├── SKILL.md
-│   │       ├── references/
-│   │       ├── scripts/
-│   │       └── templates/
-│   └── publishing/
-│       └── zach-wechat-daily-publisher/
-│           ├── SKILL.md
-│           ├── agents/
-│           ├── references/
-│           ├── scripts/
-│           └── templates/
+│   └── <domain>/                  # automation, publishing, ...
+│       └── <skill-name>/
+│           ├── SKILL.md           # required
+│           └── agents/ references/ scripts/ templates/ tests/   # optional
 └── templates/
     ├── SKILL.template.md
     └── SKILL.with-references.template.md
 ```
+
+This tree shows the shape only. The authoritative skill inventory is the
+[Skills](#skills) table below, which the pre-commit hook enforces.
 
 ## Conventions
 
@@ -81,7 +71,7 @@ Skills are loaded by Codex-compatible agents (`.agent/`) and Claude Code (`.clau
 2. Copy `templates/SKILL.template.md` into that directory as `SKILL.md`.
 3. Fill in the frontmatter and keep the body concise.
 4. Add optional `references/`, `scripts/`, `templates/`, or `assets/` only when they materially improve reuse.
-5. Add an entry to the skill table in this README.
+5. Add an entry to the skill table in this README (the `Layout` tree is generic and needs no edit).
 6. Create flat symlinks in both `.agent/skills/` and `.claude/skills/`:
    ```bash
    ln -sf ../../skills/<domain>/<skill-name> .agent/skills/<skill-name>
