@@ -11,7 +11,7 @@ description: >
   pre-created types, and audits prior absorption for zero-consumer artifacts.
 metadata:
   author: zach
-  version: "1.1.0"
+  version: "1.2.0"
 ---
 
 # Absorb a Reference Project Without Cargo-Culting It
@@ -95,6 +95,8 @@ Each absorbed pattern becomes a rule in the target's agent docs with three parts
 
 Rules must be self-contained: describe the shape inline, never link the reference repo's machine path, and never import the reference's dependencies just to mirror its implementation.
 
+In template repos the bar is higher. A pre-seeded shape there carries reconstruction knowledge for downstream projects, so deleting it is complete only when the replacing rule preserves the full code shape and names the degraded alternatives it forbids (singleton access, double bootstrap). Copying the rule must stay cheaper than improvising.
+
 ### [3b] Rework audit
 
 For every type or file that traces to the reference: count production consumers (tests excluded), check who constructs it, check what would break. Husks show a consistent signature: only tests reference them, or only each other. Delete the husk, the pinning test, and orphaned side-resources (localization keys, assets, doc mentions). Forwarding aliases left by past renames are the same disease: production calls the new name, tests call the old one; update tests to the real API and delete the aliases.
@@ -121,6 +123,7 @@ Run the target's full gates and read the output. After "observably equivalent" r
 | Hardcoding the reference repo's local path into target docs | Rules are self-contained; machine paths drift and leak usernames |
 | Skipping the suite because the refactor "is equivalent" | Run everything; equality tests catch round-trip subtleties reasoning misses |
 | Verification gaps discovered but left as-is | If the test plan misses a package or gate, fix the plan in this session and rerun |
+| Deleting a template repo's pre-seeded shape as ordinary dead code | Templates carry reconstruction knowledge: the replacing rule must include the concrete code shape and the explicitly banned degraded alternatives (singleton, double bootstrap); a trigger-only rule does not complete the deletion |
 
 ## Rules
 
