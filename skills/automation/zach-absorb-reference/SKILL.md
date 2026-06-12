@@ -2,14 +2,16 @@
 name: zach-absorb-reference
 description: >
   Use when a project wants to absorb an admired reference project's
-  architecture ("吸收 X 的精华", "参照 X 的思想", "学 X 的架构"), or when a
+  architecture ("吸收 X 的精华", "参照 X 的思想", "学 X 的架构"), when a
   project that previously copied a reference has drifted into dead
-  scaffolding and needs rework ("之前吸收过但需要重构"). Converts reference
+  scaffolding and needs rework ("之前吸收过但需要重构"), or as the execution
+  playbook right after an audit/review surfaces reference-derived dead
+  scaffolding, template leftovers, or zero-consumer types. Converts reference
   patterns into trigger-based rules in the target's agent docs instead of
   pre-created types, and audits prior absorption for zero-consumer artifacts.
 metadata:
   author: zach
-  version: "1.0.0"
+  version: "1.1.0"
 ---
 
 # Absorb a Reference Project Without Cargo-Culting It
@@ -20,6 +22,8 @@ Use this skill when Zach points at a reference project he admires and asks a tar
 
 - Zach names a reference repo and a target repo and asks to absorb, imitate, or learn from the reference.
 - A target project contains reference-shaped types with no production consumers (prior absorption gone stale).
+- A project audit or code review has just surfaced reference-derived leftovers; the audit is the diagnosis, this skill is the follow-through. Do not re-audit; start from the audit's findings at step [2].
+- If this skill is not installed in the current session, read this file by its repo path (`Zach-Skills/skills/automation/zach-absorb-reference/SKILL.md`) and follow it.
 - Not for: generic code review with no reference involved, writing the reference project itself, or copying product/UX decisions (those are per-product calls, not absorption).
 
 ## Scope
