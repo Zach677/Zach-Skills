@@ -1,6 +1,6 @@
 ---
 name: zach-wechat-daily-publisher
-description: Use when Zach wants a full WeChat Official Account daily article workflow: API-only daily guard, history-aware topic choice, AI-written Simplified Chinese article, topic-specific cover generation, WeChat-ready rendering, API draft creation, publish/blocker logs, and learning from edits. Do not use browser, OpenCLI, Chrome, CDP, QR-login, or editor automation.
+description: "Use when Zach wants a full WeChat Official Account daily article workflow: API-only daily guard, history-aware topic choice, AI-written Simplified Chinese article, topic-specific cover generation, WeChat-ready rendering, API draft creation, publish/blocker logs, and learning from edits. Do not use browser, OpenCLI, Chrome, CDP, QR-login, or editor automation."
 metadata:
   author: zach
   version: "0.1.0"
