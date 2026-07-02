@@ -35,42 +35,45 @@ API calls, and logs.
 
 ## Workflow
 
-Run these commands from the target publishing repo unless a command explicitly
-uses this skill directory.
+Run these commands from the target publishing repo. The target repo owns the
+TypeScript/Bun command surface; this skill owns the editorial contract,
+reference rules, and the Baoyu renderer adapter under `scripts/`.
 
 1. Preflight guard:
    ```bash
-   python3 /path/to/skill/scripts/publisher_ops.py preflight --repo . --date today --fail-on-existing
+   bun scripts/daily_wechat_publisher.ts preflight --repo . --date today --fail-on-existing
    ```
 2. Export history:
    ```bash
-   python3 /path/to/skill/scripts/publisher_ops.py history-export --repo . --output .zach-wechat-daily-publisher/history.json
+   bun scripts/daily_wechat_publisher.ts history-export --repo . --output .zach-wechat-daily-publisher/history.json
    ```
 3. Capture the short-term traffic trend:
    ```bash
-   python3 /path/to/skill/scripts/publisher_ops.py trend-scan --repo . --interval-minutes 180
+   bun scripts/daily_wechat_publisher.ts trend-scan --repo . --interval-minutes 180
    ```
 4. Discover trend-aware topic candidates:
    ```bash
-   python3 /path/to/skill/scripts/publisher_ops.py discover-topics --source-mode hybrid --limit 8
+   bun scripts/daily_wechat_publisher.ts discover-topics --repo . --source-mode hybrid --limit 8
    ```
-5. Pick one timely topic. The agent may use web research, exported history, and
-   the latest trend scan. Load
+5. Pick exactly three coordinated topics: `main`, `side_a`, and `side_b`. The
+   agent may use web research, exported history, and the latest trend scan. Load
    [references/topic_selection.md](references/topic_selection.md) for scoring
    rules.
-6. Write one full Simplified Chinese article. Load
+6. Write three full Simplified Chinese articles. Load
    [references/article_writing.md](references/article_writing.md) and
    [references/article_package.md](references/article_package.md).
-7. Save the article under `articles/YYYY-MM-DD-slug.md` with frontmatter:
-   `title`, `summary`, `coverImage`, and `author`.
-8. Create cover prompt artifacts:
-   ```bash
-   python3 /path/to/skill/scripts/publisher_ops.py cover-prompt --article articles/YYYY-MM-DD-slug.md --work-dir cover-image/slug
-   ```
-   Then create a baoyu-style visual brief with content context, dimensions,
-   composition, and saved prompt artifacts before any image generation. The
+7. Save the articles under `articles/YYYY-MM-DD-role-slug.md`, where role is
+   `main`, `side-a`, or `side-b`, with frontmatter: `title`, `summary`,
+   `coverImage`, and `author`. Create `issues/YYYY-MM-DD.json` with exactly
+   three articles.
+8. Create cover prompt artifacts under
+   `cover-image/<slug>/prompts/01-cover-<slug>.md` before generation. The
    generated bitmap should be a clean source visual without embedded copy; the
    repo-local compositor owns title/subtitle placement and crop-safe layout.
+   Then run the target repo compositor:
+   ```bash
+   bun scripts/generate_issue_covers.ts --repo . --issue issues/YYYY-MM-DD.json --previews
+   ```
    Next, run the baoyu article-illustrator workflow for inline article
    illustrations: analyze positions, write `outline.md`, save prompt files,
    resolve the image backend, generate raster images, insert local Markdown
@@ -80,23 +83,27 @@ uses this skill directory.
    [references/cover_generation.md](references/cover_generation.md).
 9. Validate and render:
    ```bash
-   python3 /path/to/skill/scripts/publisher_ops.py validate-article --article articles/YYYY-MM-DD-slug.md
-   python3 /path/to/skill/scripts/publisher_ops.py render --article articles/YYYY-MM-DD-slug.md
+   bun scripts/wechat_article_validate.ts --article articles/YYYY-MM-DD-main-slug.md
+   bun scripts/wechat_render.ts --article articles/YYYY-MM-DD-main-slug.md --output articles/YYYY-MM-DD-main-slug.wechat.html
    ```
-   Rendering uses the locked `baoyu-md` Bun adapter in this skill. The first run
-   may install `scripts/` dependencies with `bun install --frozen-lockfile`.
-   For a full daily issue, also run the target repo's TypeScript visual QA
-   before publishing:
+   Repeat validation/rendering for all three article files, or let
+   `publish-issue` run these gates. Rendering uses the locked `baoyu-md` Bun
+   adapter in this skill. The first run may install `scripts/` dependencies with
+   `bun install --frozen-lockfile`. Before publishing, run visual QA:
    ```bash
-   python3 scripts/daily_wechat_publisher.py visual-qa --repo . --issue issues/YYYY-MM-DD.json --require-illustrations
+   bun scripts/daily_wechat_publisher.ts visual-qa --repo . --issue issues/YYYY-MM-DD.json --require-illustrations
    ```
 10. Publish through API only:
    ```bash
-   python3 scripts/daily_wechat_publisher.py publish-issue --repo . --date today --issue issues/YYYY-MM-DD.json --api-only --require-illustrations
+   bun scripts/daily_wechat_publisher.ts publish-issue --repo . --date today --issue issues/YYYY-MM-DD.json --api-only --require-illustrations
    ```
    Load [references/wechat_api_publish.md](references/wechat_api_publish.md).
-11. Write either a success log or blocker log using
-   `publisher_ops.py write-log`. Load
+11. `publish-issue` writes the success log or API blocker log. For a blocker
+   before publish, write it with:
+   ```bash
+   bun scripts/daily_wechat_publisher.ts write-blocker --repo . --date today --blocker-type <type> --reason <reason>
+   ```
+   Load
    [references/logging_contract.md](references/logging_contract.md).
 
 ## Editorial Lane

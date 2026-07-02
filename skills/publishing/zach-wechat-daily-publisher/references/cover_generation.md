@@ -3,8 +3,8 @@
 Use the useful parts of Baoyu's cover and article-illustrator contracts, but do
 not blindly depend on those external skills at runtime. The local repo still
 owns the WeChat card layout, crop safety, rendering, publishing, and logs. New
-deterministic visual helper code should be TypeScript/Bun by default, with the
-repo-local Python publisher acting as the stable wrapper when needed.
+deterministic visual helper code should be TypeScript/Bun by default, and the
+target publishing repo's `scripts/*.ts` files are the stable command surface.
 
 ## Cover Source Images
 
@@ -152,7 +152,7 @@ The manifest is the publishing contract:
 Run the target repo's visual QA after rendering and before publishing:
 
 ```bash
-python3 scripts/daily_wechat_publisher.py visual-qa --repo . --issue issues/YYYY-MM-DD.json --require-illustrations
+bun scripts/daily_wechat_publisher.ts visual-qa --repo . --issue issues/YYYY-MM-DD.json --require-illustrations
 ```
 
 ## Rules

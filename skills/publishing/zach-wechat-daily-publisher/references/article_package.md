@@ -72,7 +72,7 @@ Rules:
 Run:
 
 ```bash
-python3 scripts/publisher_ops.py validate-article --article articles/YYYY-MM-DD-slug.md
+bun scripts/wechat_article_validate.ts --article articles/YYYY-MM-DD-role-slug.md
 ```
 
 The command checks frontmatter, title, summary, cover path, cover file, body
@@ -81,7 +81,7 @@ length, and minimum section count. The agent still owns editorial quality.
 For daily issues with inline illustrations, run:
 
 ```bash
-python3 scripts/daily_wechat_publisher.py visual-qa --repo . --issue issues/YYYY-MM-DD.json --require-illustrations
+bun scripts/daily_wechat_publisher.ts visual-qa --repo . --issue issues/YYYY-MM-DD.json --require-illustrations
 ```
 
 This TypeScript QA checks that every article has `illustrationManifest`, an

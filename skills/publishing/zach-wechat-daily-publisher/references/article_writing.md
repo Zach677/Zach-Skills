@@ -4,7 +4,7 @@ Write in Simplified Chinese for middle-aged and older readers and their family
 caregivers. Prefer useful, low-risk, easy-to-forward articles.
 
 The target repo enforces a deterministic anti-AI style lint
-(`scripts/daily_wechat_publisher.py style-lint`), and `publish-issue` blocks on
+(`scripts/daily_wechat_publisher.ts style-lint`), and `publish-issue` blocks on
 lint failures. Write to pass it on the first try.
 
 ## Banned Patterns (lint-enforced)
