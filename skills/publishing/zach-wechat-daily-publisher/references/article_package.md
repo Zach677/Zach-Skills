@@ -6,7 +6,7 @@ intermediate data.
 
 ## Markdown Frontmatter
 
-Every publishable article must start with:
+Every publishable article must start with the base fields:
 
 ```yaml
 ---
@@ -17,9 +17,25 @@ author: zachaics
 ---
 ```
 
+When issue cover generation is in play, the orchestrator may add cover
+compositor fields after the base fields:
+
+```yaml
+coverTitle: 封面短标题
+coverSubtitle: 封面短副标题
+coverVisualImage: /absolute/path/to/cover-image/slug/visual.png
+illustrationManifest: /absolute/path/to/article-illustrations/YYYY-MM-DD/role-slug/manifest.json
+```
+
 Rules:
 
 - `coverImage` must point to the final PNG used for this run.
+- `coverTitle`, `coverSubtitle`, and `coverVisualImage` are orchestrator-owned
+  fields for the local cover compositor. The writer may suggest wording in the
+  brief, but should not add these fields unless explicitly asked.
+- `illustrationManifest` is orchestrator-owned. It points to the article
+  illustration manifest that records the outline, backend, prompt artifacts,
+  generated raster images, and reference images.
 - Do not point at `articles/imgs/cover.png` unless generation failed and the
   log says the generic fallback was reused.
 - `summary` should be concise enough for WeChat share cards.
@@ -40,8 +56,12 @@ Rules:
   "author": "",
   "article_path": "",
   "cover_image": "",
+  "cover_visual_image": "",
+  "cover_prompt": "",
+  "illustration_manifest": "",
   "topic": {},
   "sources": [],
+  "visual_plan": {},
   "fact_checklist": [],
   "self_check": []
 }
@@ -57,3 +77,13 @@ python3 scripts/publisher_ops.py validate-article --article articles/YYYY-MM-DD-
 
 The command checks frontmatter, title, summary, cover path, cover file, body
 length, and minimum section count. The agent still owns editorial quality.
+
+For daily issues with inline illustrations, run:
+
+```bash
+python3 scripts/daily_wechat_publisher.py visual-qa --repo . --issue issues/YYYY-MM-DD.json --require-illustrations
+```
+
+This TypeScript QA checks that every article has `illustrationManifest`, an
+outline, prompt files, generated raster images, inserted Markdown image links,
+and rendered WeChat HTML references before publishing.

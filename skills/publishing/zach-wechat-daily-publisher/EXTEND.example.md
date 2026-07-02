@@ -20,10 +20,28 @@ only_fans_can_comment: 0
 
 cover:
   aspect: "2.35:1"
+  type: scene
+  palette: warm
   rendering: flat-vector
-  text: title-only
+  text: none
   mood: balanced
   font: clean
+  source_style: clean topic-specific bitmap, no embedded words or labels
+
+article_illustrations:
+  default: generate
+  density: balanced
+  max_per_article: 4
+  default_preset: hand-drawn-edu
+  preferred_image_backend: auto
+  qa_required: true
+  allowed_when:
+    - process
+    - comparison
+    - timeline
+    - checklist
+    - framework
+    - risk-pattern
 
 title_templates:
 - 家里有老人会碰到「{title}」的，先把入口、条件和时间点看明白

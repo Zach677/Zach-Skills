@@ -67,9 +67,16 @@ uses this skill directory.
    ```bash
    python3 /path/to/skill/scripts/publisher_ops.py cover-prompt --article articles/YYYY-MM-DD-slug.md --work-dir cover-image/slug
    ```
-   Then use the runtime-native image tool to generate a bitmap cover, copy it to
-   the exact `coverImage` path, and never reuse `articles/imgs/cover.png` unless
-   cover generation failed and the blocker/log explicitly says so. Load
+   Then create a baoyu-style visual brief with content context, dimensions,
+   composition, and saved prompt artifacts before any image generation. The
+   generated bitmap should be a clean source visual without embedded copy; the
+   repo-local compositor owns title/subtitle placement and crop-safe layout.
+   Next, run the baoyu article-illustrator workflow for inline article
+   illustrations: analyze positions, write `outline.md`, save prompt files,
+   resolve the image backend, generate raster images, insert local Markdown
+   image links, and add `illustrationManifest` frontmatter. Never reuse
+   `articles/imgs/cover.png` unless cover generation failed and the blocker/log
+   explicitly says so. Load
    [references/cover_generation.md](references/cover_generation.md).
 9. Validate and render:
    ```bash
@@ -78,9 +85,14 @@ uses this skill directory.
    ```
    Rendering uses the locked `baoyu-md` Bun adapter in this skill. The first run
    may install `scripts/` dependencies with `bun install --frozen-lockfile`.
+   For a full daily issue, also run the target repo's TypeScript visual QA
+   before publishing:
+   ```bash
+   python3 scripts/daily_wechat_publisher.py visual-qa --repo . --issue issues/YYYY-MM-DD.json --require-illustrations
+   ```
 10. Publish through API only:
    ```bash
-   python3 /path/to/skill/scripts/publisher_ops.py publish-api --article articles/YYYY-MM-DD-slug.md --cover articles/imgs/YYYY-MM-DD-slug-cover.png
+   python3 scripts/daily_wechat_publisher.py publish-issue --repo . --date today --issue issues/YYYY-MM-DD.json --api-only --require-illustrations
    ```
    Load [references/wechat_api_publish.md](references/wechat_api_publish.md).
 11. Write either a success log or blocker log using
@@ -103,7 +115,7 @@ Write general information, not diagnosis or treatment.
 - Topic scoring: [references/topic_selection.md](references/topic_selection.md)
 - Writing and self-check: [references/article_writing.md](references/article_writing.md)
 - Article schema: [references/article_package.md](references/article_package.md)
-- Cover generation: [references/cover_generation.md](references/cover_generation.md)
+- Visual generation: [references/cover_generation.md](references/cover_generation.md)
 - WeChat rendering: [references/render_wechat_html.md](references/render_wechat_html.md)
 - API publishing: [references/wechat_api_publish.md](references/wechat_api_publish.md)
 - Logs: [references/logging_contract.md](references/logging_contract.md)

@@ -10,6 +10,9 @@ Agent-owned:
 - research and verify facts
 - write and revise the article
 - decide title, summary, and cover wording
+- create the visual plan: cover source concept, prompt artifact, article
+  illustration outline, prompt artifacts, backend choice, raster outputs, and
+  manifest
 - judge whether the article is safe to publish
 
 Script-owned:
@@ -19,7 +22,8 @@ Script-owned:
 - periodic trend snapshot capture
 - trend-aware topic candidate scoring
 - article frontmatter validation
-- cover prompt artifact creation
+- cover composition, square-preview generation, and cover QA artifacts
+- TypeScript visual artifact QA before publish
 - Markdown to WeChat-ready HTML rendering
 - WeChat API calls
 - success/blocker logs
