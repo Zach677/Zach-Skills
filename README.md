@@ -41,6 +41,7 @@ This tree shows the shape only. The authoritative skill inventory is the
 | ----- | ------- |
 | [`zach-absorb-reference`](skills/automation/zach-absorb-reference/SKILL.md) | Audit and absorb a reference project's strengths as trigger-based rules instead of pre-created scaffolding |
 | [`zach-codex-retrospective`](skills/automation/zach-codex-retrospective/SKILL.md) | Review recent Codex collaboration history and propose minimal AGENTS.md or tiny skill updates |
+| [`zach-museamp-import`](skills/automation/zach-museamp-import/SKILL.md) | Prepare MuseAmp-ready local music import folders |
 | [`zach-oss-governance-bootstrap`](skills/automation/zach-oss-governance-bootstrap/SKILL.md) | Bootstrap Ghostty-style open-source contribution governance for GitHub repos |
 | [`zach-ui-delegation-workflow`](skills/automation/zach-ui-delegation-workflow/SKILL.md) | Bootstrap Codex-to-UI-agent delegation guardrails for product repositories |
 
