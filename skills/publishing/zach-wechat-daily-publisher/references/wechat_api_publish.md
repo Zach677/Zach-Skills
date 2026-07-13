@@ -8,8 +8,8 @@ the article to subscribers.
 The script checks:
 
 - environment variables: `WECHAT_APP_ID`, `WECHAT_APP_SECRET`
-- `./.baoyu-skills/.env`
-- `~/.baoyu-skills/.env`
+- `./.zach-wechat-daily-publisher/.env`
+- `~/.zach-wechat-daily-publisher/.env`
 
 Do not store credentials in this skill.
 
