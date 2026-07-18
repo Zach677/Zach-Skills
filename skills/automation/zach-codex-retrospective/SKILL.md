@@ -87,4 +87,4 @@ When applying changes in a skills repo:
 - Run `git diff --check`.
 - Run `.githooks/pre-commit` if present.
 - Confirm every new skill has a README entry and flat symlinks under both
-  `.agent/skills/` and `.claude/skills/` when the repo uses that convention.
+  `.agents/skills/` and `.claude/skills/` when the repo uses that convention.

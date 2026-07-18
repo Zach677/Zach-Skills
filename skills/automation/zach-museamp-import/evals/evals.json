@@ -1,0 +1,15 @@
+{
+  "skill_name": "zach-museamp-import",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "把 ~/Downloads/New-Album 里的本地音乐整理成 MuseAmp 可以导入的平铺副本，原文件不要动。",
+      "expected_output": "A non-destructive flat output folder with deterministic numeric catalog metadata, followed by a readiness check and the exact import path."
+    },
+    {
+      "id": 2,
+      "prompt": "检查 /tmp/empty-music 并生成 MuseAmpReady 文件夹，这个目录可能不存在或没有音频。",
+      "expected_output": "A clear non-zero failure for a missing or empty source, with no output directory created and no false success counts such as 0/0."
+    }
+  ]
+}

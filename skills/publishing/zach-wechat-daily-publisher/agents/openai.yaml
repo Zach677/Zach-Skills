@@ -1,4 +1,4 @@
 interface:
   display_name: "Zach WeChat Daily Publisher"
   short_description: "Write and publish daily WeChat drafts through API-only flow"
-  default_prompt: "Use $zach-wechat-daily-publisher to check today's logs, choose a timely 45+ reader topic, write a Simplified Chinese article, generate a new cover, publish via WeChat API draft/add only, and write the success or blocker log."
+  default_prompt: "Use $zach-wechat-daily-publisher to enter the target Wechat-post repo, read its AGENTS.md, check today's status, and follow its repo-local daily publishing workflow to a success or blocker log."

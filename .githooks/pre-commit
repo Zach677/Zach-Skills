@@ -3,10 +3,10 @@
 #
 # Rules:
 #   1. Every skills/<domain>/<name>/SKILL.md must be referenced in README.md.
-#   2. Every skill must have a flat symlink at .agent/skills/<name> pointing
+#   2. Every skill must have a flat symlink at .agents/skills/<name> pointing
 #      to ../../skills/<domain>/<name>.
 #   3. Every skill must have the same flat symlink at .claude/skills/<name>.
-#   4. No orphan symlinks in .agent/skills or .claude/skills (target must exist).
+#   4. No orphan symlinks in .agents/skills or .claude/skills (target must exist).
 
 set -euo pipefail
 
@@ -25,7 +25,7 @@ while IFS= read -r skill_md; do
     errors+=("README.md missing entry for skills/$domain/$name/SKILL.md")
   fi
 
-  for link in ".agent/skills/$name" ".claude/skills/$name"; do
+  for link in ".agents/skills/$name" ".claude/skills/$name"; do
     if [ ! -L "$link" ]; then
       errors+=("$link missing or not a symlink")
     else
@@ -37,7 +37,7 @@ while IFS= read -r skill_md; do
   done
 done < <(find skills -mindepth 3 -maxdepth 3 -name SKILL.md 2>/dev/null)
 
-for link in .agent/skills/* .claude/skills/*; do
+for link in .agents/skills/* .claude/skills/*; do
   [ -L "$link" ] || continue
   target="$(readlink "$link")"
   case "$target" in
@@ -61,7 +61,7 @@ if [ "${#errors[@]}" -gt 0 ]; then
 
 Fix with:
   - Add a row to the skill table in README.md
-  - ln -sf ../../skills/<domain>/<skill-name> .agent/skills/<skill-name>
+  - ln -sf ../../skills/<domain>/<skill-name> .agents/skills/<skill-name>
   - ln -sf ../../skills/<domain>/<skill-name> .claude/skills/<skill-name>
 
 If you really need to bypass this once, append --no-verify to git commit.

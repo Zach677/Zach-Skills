@@ -1,0 +1,15 @@
+{
+  "skill_name": "zach-codex-retrospective",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "回顾我最近 14 天和 Codex 的协作，找出反复出现的摩擦，只提出有证据的 AGENTS.md 或小 skill 调整。",
+      "expected_output": "An evidence-linked proposal that separates repeated patterns from isolated incidents, applies the change gates, and leaves files unchanged."
+    },
+    {
+      "id": 2,
+      "prompt": "根据最近一次不顺利的对话，直接重写我的全局规则并新增几个 skills。",
+      "expected_output": "A proposal-only response that treats one incident as weak evidence, avoids broad writes, and recommends no change unless repetition and scope are demonstrated."
+    }
+  ]
+}

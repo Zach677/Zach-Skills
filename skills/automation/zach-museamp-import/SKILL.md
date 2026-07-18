@@ -74,6 +74,8 @@ Interpretation:
 - Standard tags alone are not enough for direct MuseAmp import. MuseAmp expects an iTunes-style comment JSON with numeric `trackID` and `albumID`.
 
 Continue even if the source fails `catalog_comment`; the copy step is designed to fix that. Stop if there are zero audio files, unreadable media, DRM-protected files, or missing core tags that Zach needs to repair at the source.
+The checker exits non-zero whenever the folder is not ready; a source folder
+missing only `catalog_comment` is the expected pre-conversion case.
 
 ### 3. Create MuseAmpReady Copies
 

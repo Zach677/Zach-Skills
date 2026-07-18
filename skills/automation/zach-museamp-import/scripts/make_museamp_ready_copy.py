@@ -7,16 +7,11 @@ import subprocess
 import zlib
 from pathlib import Path
 
-
-AUDIO_EXTENSIONS = {".mp3", ".m4a", ".flac", ".wav", ".aac", ".aiff", ".alac", ".ogg", ".wma", ".opus"}
+from museamp_common import audio_files
 
 
 def numeric_id(prefix: int, value: str) -> str:
     return str(prefix + (zlib.crc32(value.encode("utf-8")) % 900_000_000))
-
-
-def audio_files(root: Path) -> list[Path]:
-    return sorted(path for path in root.rglob("*") if path.is_file() and path.suffix.lower() in AUDIO_EXTENSIONS)
 
 
 def clean_filename(value: str) -> str:
@@ -38,12 +33,13 @@ def output_path(source_root: Path, output_root: Path, source: Path, flat: bool) 
 
 
 def convert(source_root: Path, output_root: Path, flat: bool) -> int:
+    sources = audio_files(source_root)
     if output_root.exists() and any(output_root.iterdir()):
         raise SystemExit(f"output exists and is not empty: {output_root}")
     output_root.mkdir(parents=True, exist_ok=True)
 
     count = 0
-    for source in audio_files(source_root):
+    for source in sources:
         relative = source.relative_to(source_root)
         destination = output_path(source_root, output_root, source, flat)
         destination.parent.mkdir(parents=True, exist_ok=True)
@@ -91,7 +87,10 @@ def main() -> int:
     if not shutil.which("ffmpeg"):
         raise SystemExit("ffmpeg not found")
 
-    count = convert(args.source, args.output, args.flat)
+    try:
+        count = convert(args.source, args.output, args.flat)
+    except ValueError as error:
+        raise SystemExit(str(error)) from error
     print(f"copied={count}")
     print(f"output={args.output}")
     return 0

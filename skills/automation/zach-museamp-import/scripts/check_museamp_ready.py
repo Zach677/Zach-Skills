@@ -5,8 +5,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
-
-AUDIO_EXTENSIONS = {".mp3", ".m4a", ".flac", ".wav", ".aac", ".aiff", ".alac", ".ogg", ".wma", ".opus"}
+from museamp_common import audio_files
 
 
 def ffprobe(path: Path) -> dict:
@@ -58,9 +57,8 @@ def catalog_comment(tags: dict[str, str]) -> tuple[bool, str]:
 
 
 def scan(root: Path) -> list[dict[str, object]]:
-    files = sorted(path for path in root.rglob("*") if path.is_file() and path.suffix.lower() in AUDIO_EXTENSIONS)
     rows = []
-    for path in files:
+    for path in audio_files(root):
         metadata = ffprobe(path)
         tags = normalized_tags(metadata)
         catalog_ok, catalog_reason = catalog_comment(tags)
@@ -89,7 +87,10 @@ def main() -> int:
     if not shutil.which("ffprobe"):
         raise SystemExit("ffprobe not found")
 
-    rows = scan(args.root)
+    try:
+        rows = scan(args.root)
+    except ValueError as error:
+        raise SystemExit(str(error)) from error
     print(f"files={len(rows)}")
 
     keys = ["title", "artist", "album", "album_artist", "lyrics", "cover", "catalog_comment"]
@@ -110,7 +111,7 @@ def main() -> int:
             detail += f" ({row['catalog_reason']})"
         print(f"{row['path']}\t{detail}")
 
-    return 0
+    return 1 if broken else 0
 
 
 if __name__ == "__main__":

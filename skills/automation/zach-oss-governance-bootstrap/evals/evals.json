@@ -1,0 +1,15 @@
+{
+  "skill_name": "zach-oss-governance-bootstrap",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "给这个刚公开的 GitHub 仓库建立轻量贡献治理，参考 Ghostty 和 Vouch，但先检查仓库已有规则。",
+      "expected_output": "A repository-specific bootstrap plan or patch that preserves existing governance, renders templates with explicit values, and validates the resulting workflows."
+    },
+    {
+      "id": 2,
+      "prompt": "这个仓库已经有 CONTRIBUTING、分支保护和 issue 模板，只补真正缺失的 Vouch 门禁。",
+      "expected_output": "A minimal gap analysis that keeps working files intact, adds only required Vouch surfaces, and avoids unrelated template replacement."
+    }
+  ]
+}

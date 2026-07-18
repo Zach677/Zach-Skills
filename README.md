@@ -11,7 +11,7 @@ Zach-Skills/
 │   └── <domain>/                  # automation, publishing, ...
 │       └── <skill-name>/
 │           ├── SKILL.md           # required
-│           └── agents/ references/ scripts/ templates/ tests/   # optional
+│           └── agents/ evals/ references/ scripts/ templates/ tests/   # optional
 └── templates/
     ├── SKILL.template.md
     └── SKILL.with-references.template.md
@@ -24,7 +24,7 @@ This tree shows the shape only. The authoritative skill inventory is the
 
 - Place real skills only under `skills/`.
 - Group skills by a stable domain such as `infrastructure`, `writing`, `research`, `automation`, or `content`.
-- Each skill should live in its own directory and contain a single required `SKILL.md` file plus optional `agents/`, `references/`, `scripts/`, `templates/`, or `assets/` subdirectories.
+- Each skill should live in its own directory and contain a single required `SKILL.md` file plus optional `agents/`, `evals/`, `references/`, `scripts/`, `templates/`, or `assets/` subdirectories.
 - Keep the top-level `templates/` directory for reusable skill skeletons only. Files in that directory are not treated as active skills.
 - Avoid storing credentials, tokens, or machine-specific secrets in skill files.
 - Prefer one skill per directory, even when the first version is only a single `SKILL.md`.
@@ -43,7 +43,6 @@ This tree shows the shape only. The authoritative skill inventory is the
 | [`zach-codex-retrospective`](skills/automation/zach-codex-retrospective/SKILL.md) | Review recent Codex collaboration history and propose minimal AGENTS.md or tiny skill updates |
 | [`zach-museamp-import`](skills/automation/zach-museamp-import/SKILL.md) | Prepare MuseAmp-ready local music import folders |
 | [`zach-oss-governance-bootstrap`](skills/automation/zach-oss-governance-bootstrap/SKILL.md) | Bootstrap Ghostty-style open-source contribution governance for GitHub repos |
-| [`zach-ui-delegation-workflow`](skills/automation/zach-ui-delegation-workflow/SKILL.md) | Bootstrap Codex-to-UI-agent delegation guardrails for product repositories |
 
 ### Publishing
 
@@ -55,10 +54,10 @@ This tree shows the shape only. The authoritative skill inventory is the
 
 ## Agent Integration
 
-Skills are loaded by Codex-compatible agents (`.agent/`) and Claude Code (`.claude/`) via **flat symlinks** directly under their respective `skills/` directories. Each agent expects skills at exactly one level deep: `.agent/skills/<skill-name>/SKILL.md` or `.claude/skills/<skill-name>/SKILL.md`.
+Skills are loaded by Codex-compatible agents (`.agents/`) and Claude Code (`.claude/`) via **flat symlinks** directly under their respective `skills/` directories. Each agent expects skills at exactly one level deep: `.agents/skills/<skill-name>/SKILL.md` or `.claude/skills/<skill-name>/SKILL.md`.
 
 ```text
-.agent/skills/
+.agents/skills/
 └── <skill-name> -> ../../skills/<domain>/<skill-name>   ← flat symlink
 .claude/skills/
 └── <skill-name> -> ../../skills/<domain>/<skill-name>   ← flat symlink
@@ -71,11 +70,11 @@ Skills are loaded by Codex-compatible agents (`.agent/`) and Claude Code (`.clau
 1. Create a new directory under `skills/<domain>/<skill-name>/`.
 2. Copy `templates/SKILL.template.md` into that directory as `SKILL.md`.
 3. Fill in the frontmatter and keep the body concise.
-4. Add optional `references/`, `scripts/`, `templates/`, or `assets/` only when they materially improve reuse.
+4. Add optional `evals/`, `references/`, `scripts/`, `templates/`, or `assets/` only when they materially improve reuse. Start evals with two or three realistic prompts in `evals/evals.json`.
 5. Add an entry to the skill table in this README (the `Layout` tree is generic and needs no edit).
-6. Create flat symlinks in both `.agent/skills/` and `.claude/skills/`:
+6. Create flat symlinks in both `.agents/skills/` and `.claude/skills/`:
    ```bash
-   ln -sf ../../skills/<domain>/<skill-name> .agent/skills/<skill-name>
+   ln -sf ../../skills/<domain>/<skill-name> .agents/skills/<skill-name>
    ln -sf ../../skills/<domain>/<skill-name> .claude/skills/<skill-name>
    ```
 
@@ -87,7 +86,7 @@ Skills are loaded by Codex-compatible agents (`.agent/`) and Claude Code (`.clau
 
 ## Repository Hooks
 
-A pre-commit hook in `.githooks/pre-commit` enforces the rules above: every skill under `skills/<domain>/<name>/SKILL.md` must have a README entry and matching flat symlinks under `.agent/skills/` and `.claude/skills/`. Orphan symlinks fail the hook too.
+A pre-commit hook in `.githooks/pre-commit` enforces the rules above: every skill under `skills/<domain>/<name>/SKILL.md` must have a README entry and matching flat symlinks under `.agents/skills/` and `.claude/skills/`. Orphan symlinks fail the hook too.
 
 Enable it once per clone:
 

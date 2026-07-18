@@ -1,0 +1,15 @@
+{
+  "skill_name": "zach-absorb-reference",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "参考 Ghostty 的贡献者治理方式，审视我这个小型开源仓库，只吸收真正有消费者的规则。",
+      "expected_output": "A consumer-backed comparison that proposes only transferable rules needed by the current repository and avoids pre-creating unused scaffolding."
+    },
+    {
+      "id": 2,
+      "prompt": "把参考仓库里的目录、模板、工作流都先复制过来，以后总会用到。",
+      "expected_output": "A concise rejection of speculative copying, followed by a minimal list of proven invariants or no change when no current consumer exists."
+    }
+  ]
+}

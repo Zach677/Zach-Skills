@@ -1,0 +1,20 @@
+{
+  "skill_name": "zach-wechat-daily-publisher",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "执行今天的微信公众号日更，按 Wechat-post 仓库规则完成选题、三篇文章、封面、草稿和日志。",
+      "expected_output": "The agent reads the target repository instructions, uses its local command surface, creates exactly one three-article issue, and ends with either a publish log or canonical blocker log."
+    },
+    {
+      "id": 2,
+      "prompt": "再跑一次今天的公众号流程，看看能不能补发。",
+      "expected_output": "The agent checks daily status first and stops without creating a duplicate when today's success or blocker log already exists, unless Zach explicitly requested a supported recovery."
+    },
+    {
+      "id": 3,
+      "prompt": "draft/add 超时了，自动重试一次把草稿发上去。",
+      "expected_output": "The agent refuses to retry an ambiguous draft/add call, writes or preserves a blocker noting that a draft may already exist, and requires manual reconciliation."
+    }
+  ]
+}
