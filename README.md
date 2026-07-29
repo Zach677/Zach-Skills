@@ -44,14 +44,6 @@ This tree shows the shape only. The authoritative skill inventory is the
 | [`zach-museamp-import`](skills/automation/zach-museamp-import/SKILL.md) | Prepare MuseAmp-ready local music import folders |
 | [`zach-oss-governance-bootstrap`](skills/automation/zach-oss-governance-bootstrap/SKILL.md) | Bootstrap Ghostty-style open-source contribution governance for GitHub repos |
 
-### Publishing
-
-> Content production and publishing workflows.
-
-| Skill | Purpose |
-| ----- | ------- |
-| [`zach-wechat-daily-publisher`](skills/publishing/zach-wechat-daily-publisher/SKILL.md) | AI-led daily WeChat article writing with cover generation, API draft publishing, and logs |
-
 ## Agent Integration
 
 Skills are loaded by Codex-compatible agents (`.agents/`) and Claude Code (`.claude/`) via **flat symlinks** directly under their respective `skills/` directories. Each agent expects skills at exactly one level deep: `.agents/skills/<skill-name>/SKILL.md` or `.claude/skills/<skill-name>/SKILL.md`.
@@ -82,7 +74,7 @@ Skills are loaded by Codex-compatible agents (`.agents/`) and Claude Code (`.cla
 
 - Directory names should use lowercase kebab-case.
 - Skill `name` values should be stable and descriptive.
-- Prefer names that state both target and action, such as `zach-wechat-daily-publisher` or `zach-article-publish-checklist`.
+- Prefer names that state both target and action, such as `zach-museamp-import` or `zach-article-publish-checklist`.
 
 ## Repository Hooks
 
